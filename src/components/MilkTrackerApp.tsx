@@ -1,9 +1,8 @@
-
-"use client";
+'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useDoc } from '@/firebase';
-import { collection, doc, addDoc, setDoc, deleteDoc, updateDoc, query, where, orderBy } from 'firebase/firestore';
+import { collection, doc, addDoc, setDoc, deleteDoc, updateDoc, query, orderBy } from 'firebase/firestore';
 import AuthPage from '@/components/AuthPage';
 import Dashboard from '@/components/Dashboard';
 import CustomerDetail from '@/components/CustomerDetail';
@@ -15,7 +14,7 @@ import { Settings as SettingsIcon, LogOut } from 'lucide-react';
 import { Customer, MilkEntry, AppSettings } from '@/lib/types';
 
 export default function MilkTrackerApp() {
-  const { user, loading: authLoading } = useUser();
+  const { user, loading: authLoading, signOut } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
 
@@ -48,8 +47,10 @@ export default function MilkTrackerApp() {
   useEffect(() => {
     if (settings.darkMode) {
       document.documentElement.classList.add('dark');
+      document.body.classList.add('dark-mode');
     } else {
       document.documentElement.classList.remove('dark');
+      document.body.classList.remove('dark-mode');
     }
   }, [settings.darkMode]);
 
@@ -67,56 +68,55 @@ export default function MilkTrackerApp() {
 
   const handleDeleteCustomer = async (id: string, name: string) => {
     const customerRef = doc(db!, 'users', user.uid, 'customers', id);
-    await deleteDoc(customerRef);
-    // Also delete associated entries
-    const entriesToDelete = milkEntries.filter(e => e.customerName === name);
-    for (const entry of entriesToDelete) {
-      await deleteDoc(doc(db!, 'users', user.uid, 'entries', entry.id!));
-    }
-    toast({ title: "Customer Deleted", description: `Removed ${name} and all data.` });
+    deleteDoc(customerRef);
+    // Associated entries are kept for record or could be cleaned up if desired
+    toast({ title: "Customer Deleted", description: `Removed ${name}.` });
+  };
+
+  const handleSaveSettings = (newSettings: AppSettings) => {
+    setDoc(settingsRef!, { ...newSettings, ownerId: user.uid }, { merge: true });
+    toast({ title: "Settings Saved", description: "Application preferences updated." });
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
-      <div className="container mx-auto">
-        <header className="flex justify-between items-center mb-8 no-print">
-          <h1 className="text-2xl font-bold text-[var(--heading-color)]">Milk Tracker</h1>
-          <div className="flex gap-2">
-            <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)}>
-              <SettingsIcon className="h-6 w-6" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={() => useUser().signOut()}>
-              <LogOut className="h-6 w-6" />
-            </Button>
-          </div>
-        </header>
+    <div className="container mx-auto">
+      <header className="flex justify-between items-center mb-8 no-print pt-6">
+        <h1 className="text-2xl font-bold text-[var(--heading-color)] m-0">Milk Tracker</h1>
+        <div className="flex gap-2">
+          <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)}>
+            <SettingsIcon className="h-6 w-6" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={() => signOut()}>
+            <LogOut className="h-6 w-6" />
+          </Button>
+        </div>
+      </header>
 
-        {currentView === 'dashboard' ? (
-          <Dashboard
-            customers={customers}
-            milkEntries={milkEntries}
-            onAddCustomer={handleAddCustomer}
-            onDeleteCustomer={handleDeleteCustomer}
-            onSelectCustomer={(c) => { setSelectedCustomer(c); setCurrentView('customer-detail'); }}
-          />
-        ) : selectedCustomer && (
-          <CustomerDetail
-            customer={selectedCustomer}
-            entries={milkEntries.filter(e => e.customerName === selectedCustomer.name)}
-            settings={settings}
-            onBack={() => setCurrentView('dashboard')}
-            db={db!}
-            userId={user.uid}
-          />
-        )}
-
-        <SettingsModal
-          isOpen={isSettingsOpen}
-          onClose={() => setIsSettingsOpen(false)}
-          settings={settings}
-          onSave={(s) => setDoc(settingsRef!, { ...s, ownerId: user.uid }, { merge: true })}
+      {currentView === 'dashboard' ? (
+        <Dashboard
+          customers={customers}
+          milkEntries={milkEntries}
+          onAddCustomer={handleAddCustomer}
+          onDeleteCustomer={handleDeleteCustomer}
+          onSelectCustomer={(c) => { setSelectedCustomer(c); setCurrentView('customer-detail'); }}
         />
-      </div>
+      ) : selectedCustomer && (
+        <CustomerDetail
+          customer={selectedCustomer}
+          entries={milkEntries.filter(e => e.customerName === selectedCustomer.name)}
+          settings={settings}
+          onBack={() => { setCurrentView('dashboard'); setSelectedCustomer(null); }}
+          db={db!}
+          userId={user.uid}
+        />
+      )}
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={settings}
+        onSave={handleSaveSettings}
+      />
       <Toaster />
     </div>
   );

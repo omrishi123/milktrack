@@ -1,5 +1,7 @@
 'use client';
 
+// This configuration uses environment variables which will be populated
+// once you connect your Firebase project in the Studio.
 export const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "placeholder-key",
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
