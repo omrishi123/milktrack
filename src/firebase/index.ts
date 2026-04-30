@@ -5,6 +5,10 @@ import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { firebaseConfig } from './config';
 
+/**
+ * Initializes Firebase services if not already initialized.
+ * Returns the app, firestore, and auth instances.
+ */
 export function initializeFirebase() {
   const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
   const firestore = getFirestore(app);
