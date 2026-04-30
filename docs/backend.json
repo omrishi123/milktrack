@@ -1,0 +1,60 @@
+
+{
+  "entities": {
+    "Customer": {
+      "title": "Customer",
+      "description": "A customer who receives milk deliveries.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["name", "ownerId"]
+    },
+    "MilkEntry": {
+      "title": "Milk Entry",
+      "description": "A record of a single milk delivery.",
+      "type": "object",
+      "properties": {
+        "customerName": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "timeOfDay": { "type": "string", "enum": ["Morning", "Evening"] },
+        "milkQuantity": { "type": "number" },
+        "price": { "type": "number" },
+        "total": { "type": "number" },
+        "paid": { "type": "boolean" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["customerName", "date", "timeOfDay", "milkQuantity", "price", "total", "paid", "ownerId"]
+    },
+    "Settings": {
+      "title": "User Settings",
+      "description": "Global application preferences for a user.",
+      "type": "object",
+      "properties": {
+        "sellerName": { "type": "string" },
+        "defaultPrice": { "type": "number" },
+        "darkMode": { "type": "boolean" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["ownerId"]
+    }
+  },
+  "auth": {
+    "providers": ["google.com", "password"]
+  },
+  "firestore": {
+    "/users/{userId}/customers/{customerId}": {
+      "schema": "Customer",
+      "description": "User specific customers."
+    },
+    "/users/{userId}/entries/{entryId}": {
+      "schema": "MilkEntry",
+      "description": "User specific milk delivery entries."
+    },
+    "/users/{userId}/settings/config": {
+      "schema": "Settings",
+      "description": "User specific settings."
+    }
+  }
+}

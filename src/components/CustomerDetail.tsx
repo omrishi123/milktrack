@@ -1,156 +1,137 @@
+
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
+import { collection, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { Firestore } from 'firebase/firestore';
 import { Customer, MilkEntry, AppSettings } from '@/lib/types';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ArrowLeft, FileDown, Printer, Sparkles, TrendingUp } from 'lucide-react';
-import EntryForm from '@/components/EntryForm';
-import PaymentForm from '@/components/PaymentForm';
-import HistoryTable from '@/components/HistoryTable';
-import MilkChart from '@/components/MilkChart';
-import AiInsights from '@/components/AiInsights';
+import HistoryTable from './HistoryTable';
 
 interface CustomerDetailProps {
   customer: Customer;
   entries: MilkEntry[];
   settings: AppSettings;
   onBack: () => void;
-  onAddEntry: (entry: Omit<MilkEntry, 'id'>) => void;
-  onDeleteEntry: (id: number) => void;
-  onUpdateEntry: (updated: MilkEntry) => void;
-  onMarkAsPaid: (customerName: string, fromDate: string, toDate: string) => void;
+  db: Firestore;
+  userId: string;
 }
 
-export default function CustomerDetail({
-  customer,
-  entries,
-  settings,
-  onBack,
-  onAddEntry,
-  onDeleteEntry,
-  onUpdateEntry,
-  onMarkAsPaid,
-}: CustomerDetailProps) {
-  const [activeTab, setActiveTab] = useState('entry');
+export default function CustomerDetail({ customer, entries, settings, onBack, db, userId }: CustomerDetailProps) {
+  const [activeTab, setActiveTab] = useState<'entry' | 'payment' | 'history'>('entry');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [time, setTime] = useState<'Morning' | 'Evening'>('Morning');
+  const [qty, setQty] = useState('1');
+  const [price, setPrice] = useState(settings.defaultPrice.toString() || '0');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
-  const totalDue = useMemo(() => 
-    entries.filter((e) => !e.paid).reduce((acc, curr) => acc + curr.total, 0),
-  [entries]);
-
-  const handleExportCSV = () => {
-    if (entries.length === 0) return;
-    const csvContent = [
-      "Date,Time,Quantity(L),Price,Total,Status",
-      ...entries.map(e => `${e.date},${e.timeOfDay},${e.milkQuantity},${e.price},${e.total},${e.paid ? 'Paid' : 'Unpaid'}`)
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${customer.name}_milk_report.csv`;
-    link.click();
+  const handleAddEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = parseFloat(qty);
+    const p = parseFloat(price);
+    const ref = collection(db, 'users', userId, 'entries');
+    await addDoc(ref, {
+      customerName: customer.name,
+      date,
+      timeOfDay: time,
+      milkQuantity: q,
+      price: p,
+      total: q * p,
+      paid: false,
+      ownerId: userId
+    });
+    setQty('1');
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleMarkPaid = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const entriesToUpdate = entries.filter(e => e.date >= fromDate && e.date <= toDate);
+    for (const entry of entriesToUpdate) {
+      const ref = doc(db, 'users', userId, 'entries', entry.id!);
+      await updateDoc(ref, { paid: true });
+    }
+    setActiveTab('history');
   };
 
   return (
     <div className="space-y-6">
-      {/* Toolbar */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 no-print">
-        <Button variant="outline" size="sm" onClick={onBack}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-        </Button>
-        <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={handleExportCSV}>
-            <FileDown className="mr-2 h-4 w-4" /> Export CSV
-          </Button>
-          <Button variant="secondary" size="sm" onClick={handlePrint}>
-            <Printer className="mr-2 h-4 w-4" /> Print
-          </Button>
+      <div className="detail-toolbar no-print">
+        <button className="btn-secondary" onClick={onBack}>&larr; Dashboard</button>
+        <button className="btn-secondary" onClick={() => window.print()}>Print Report</button>
+      </div>
+
+      <h2 className="text-3xl font-bold text-center text-[var(--heading-color)]">{customer.name}</h2>
+
+      <nav className="detail-nav no-print">
+        <button className={`detail-nav-btn ${activeTab === 'entry' ? 'active' : ''}`} onClick={() => setActiveTab('entry')}>Add Entry</button>
+        <button className={`detail-nav-btn ${activeTab === 'payment' ? 'active' : ''}`} onClick={() => setActiveTab('payment')}>Mark Payments</button>
+        <button className={`detail-nav-btn ${activeTab === 'history' ? 'active' : ''}`} onClick={() => setActiveTab('history')}>History</button>
+      </nav>
+
+      <div className={activeTab === 'entry' ? '' : 'hidden'}>
+        <div className="card">
+          <form onSubmit={handleAddEntry} className="form-grid">
+            <div className="form-group"><label>Date</label><input type="date" value={date} onChange={e => setDate(e.target.value)} required /></div>
+            <div className="form-group">
+              <label>Time</label>
+              <select value={time} onChange={e => setTime(e.target.value as any)} required>
+                <option value="Morning">Morning</option>
+                <option value="Evening">Evening</option>
+              </select>
+            </div>
+            <div className="form-group"><label>Milk (L)</label><input type="number" step="0.1" value={qty} onChange={e => setQty(e.target.value)} required /></div>
+            <div className="form-group"><label>Price/L</label><input type="number" value={price} onChange={e => setPrice(e.target.value)} required /></div>
+            <button type="submit" className="btn-success grid-full-width py-3">Add Entry</button>
+          </form>
         </div>
       </div>
 
-      <div className="text-center space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight text-primary">{customer.name}</h2>
-        <p className="text-lg font-medium text-muted-foreground">
-          Outstanding Balance: <span className="text-destructive font-bold">₹{totalDue.toFixed(2)}</span>
-        </p>
+      <div className={activeTab === 'payment' ? '' : 'hidden'}>
+        <div className="card">
+          <form onSubmit={handleMarkPaid} className="form-grid">
+            <div className="form-group"><label>From Date</label><input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} required /></div>
+            <div className="form-group"><label>To Date</label><input type="date" value={toDate} onChange={e => setToDate(e.target.value)} required /></div>
+            <button type="submit" className="btn-warning grid-full-width py-3">Mark as Paid</button>
+          </form>
+        </div>
       </div>
 
-      <Tabs defaultValue="entry" className="w-full no-print" onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4 mb-6">
-          <TabsTrigger value="entry">Add Entry</TabsTrigger>
-          <TabsTrigger value="payment">Payments</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
-          <TabsTrigger value="insights">
-            <Sparkles className="mr-2 h-3 w-3 text-amber-500" />
-            AI Insights
-          </TabsTrigger>
-        </TabsList>
+      <div className={activeTab === 'history' ? '' : 'hidden'}>
+        <HistoryTable entries={entries} db={db} userId={userId} customerName={customer.name} />
+      </div>
 
-        <TabsContent value="entry">
-          <EntryForm
-            customerName={customer.name}
-            defaultPrice={settings.defaultPrice}
-            onAdd={onAddEntry}
-          />
-        </TabsContent>
-
-        <TabsContent value="payment">
-          <PaymentForm
-            customerName={customer.name}
-            onMarkPaid={(from, to) => {
-              onMarkAsPaid(customer.name, from, to);
-              setActiveTab('history');
-            }}
-          />
-        </TabsContent>
-
-        <TabsContent value="history" className="space-y-6">
-          <HistoryTable
-            entries={entries}
-            onDelete={onDeleteEntry}
-            onUpdate={onUpdateEntry}
-          />
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-md flex items-center">
-                <TrendingUp className="mr-2 h-4 w-4 text-blue-500" />
-                Consumption Trend
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="h-[300px]">
-              <MilkChart entries={entries} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="insights">
-          <AiInsights customerName={customer.name} entries={entries} />
-        </TabsContent>
-      </Tabs>
-
-      {/* Print-only section */}
-      <div className="hidden print:block space-y-6 mt-8">
-        <div className="text-center border-b pb-4">
-          <h1 className="text-2xl font-bold">{settings.sellerName || 'Milk Tracker Pro'}</h1>
-          <p>Invoice / Usage Report</p>
+      {/* Print Area */}
+      <div className="print-only">
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold">{settings.sellerName || 'Milk Tracker Pro'} Invoice</h1>
+          <p>Customer: {customer.name}</p>
+          <p>Generated on: {new Date().toLocaleDateString()}</p>
         </div>
-        <div className="flex justify-between">
-          <div>
-            <p><strong>To:</strong> {customer.name}</p>
-            <p><strong>Date Issued:</strong> {new Date().toLocaleDateString()}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-xl font-bold">Total Due: ₹{totalDue.toFixed(2)}</p>
-          </div>
+        <table className="w-full border-collapse border border-gray-300">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border border-gray-300 p-2">Date</th>
+              <th className="border border-gray-300 p-2">Time</th>
+              <th className="border border-gray-300 p-2">Qty (L)</th>
+              <th className="border border-gray-300 p-2">Total (₹)</th>
+              <th className="border border-gray-300 p-2">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map(e => (
+              <tr key={e.id}>
+                <td className="border border-gray-300 p-2">{e.date}</td>
+                <td className="border border-gray-300 p-2">{e.timeOfDay}</td>
+                <td className="border border-gray-300 p-2">{e.milkQuantity}</td>
+                <td className="border border-gray-300 p-2">{e.total.toFixed(2)}</td>
+                <td className="border border-gray-300 p-2">{e.paid ? 'Paid' : 'Unpaid'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="text-right mt-4 font-bold text-xl">
+          Total Due: ₹{entries.filter(e => !e.paid).reduce((sum, e) => sum + e.total, 0).toFixed(2)}
         </div>
-        <HistoryTable entries={entries} isPrintView />
       </div>
     </div>
   );

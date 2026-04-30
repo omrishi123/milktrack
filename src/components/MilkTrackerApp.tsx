@@ -1,170 +1,121 @@
+
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Customer, MilkEntry, AppSettings } from '@/lib/types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useUser, useFirestore, useCollection, useDoc } from '@/firebase';
+import { collection, doc, addDoc, setDoc, deleteDoc, updateDoc, query, where, orderBy } from 'firebase/firestore';
+import AuthPage from '@/components/AuthPage';
 import Dashboard from '@/components/Dashboard';
 import CustomerDetail from '@/components/CustomerDetail';
-import SettingsView from '@/components/SettingsView';
+import SettingsModal from '@/components/SettingsModal';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
-import { Moon, Sun, Settings, Package2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Settings as SettingsIcon, LogOut } from 'lucide-react';
+import { Customer, MilkEntry, AppSettings } from '@/lib/types';
 
 export default function MilkTrackerApp() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [milkEntries, setMilkEntries] = useState<MilkEntry[]>([]);
-  const [settings, setSettings] = useState<AppSettings>({
-    sellerName: '',
-    defaultPrice: 0,
-    darkMode: false,
-  });
-  const [currentView, setCurrentView] = useState<'dashboard' | 'customer-detail' | 'settings'>('dashboard');
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const { user, loading: authLoading } = useUser();
+  const db = useFirestore();
   const { toast } = useToast();
 
-  // Initialization & Persistence
-  useEffect(() => {
-    const savedCustomers = localStorage.getItem('mt_customers');
-    const savedEntries = localStorage.getItem('mt_entries');
-    const savedSettings = localStorage.getItem('mt_settings');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'customer-detail'>('dashboard');
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-    if (savedCustomers) setCustomers(JSON.parse(savedCustomers));
-    if (savedEntries) setMilkEntries(JSON.parse(savedEntries));
-    if (savedSettings) {
-      const parsed = JSON.parse(savedSettings);
-      setSettings(parsed);
-      if (parsed.darkMode) document.documentElement.classList.add('dark');
-    }
-  }, []);
+  // Firestore Queries
+  const customersQuery = useMemo(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'users', user.uid, 'customers'), orderBy('name'));
+  }, [db, user]);
+
+  const entriesQuery = useMemo(() => {
+    if (!db || !user) return null;
+    return query(collection(db, 'users', user.uid, 'entries'), orderBy('date', 'desc'));
+  }, [db, user]);
+
+  const settingsRef = useMemo(() => {
+    if (!db || !user) return null;
+    return doc(db, 'users', user.uid, 'settings', 'config');
+  }, [db, user]);
+
+  const { data: customers = [] } = useCollection<Customer>(customersQuery);
+  const { data: milkEntries = [] } = useCollection<MilkEntry>(entriesQuery);
+  const { data: settingsData } = useDoc<AppSettings>(settingsRef);
+
+  const settings = settingsData || { sellerName: '', defaultPrice: 0, darkMode: false, ownerId: user?.uid || '' };
 
   useEffect(() => {
-    localStorage.setItem('mt_customers', JSON.stringify(customers));
-  }, [customers]);
-
-  useEffect(() => {
-    localStorage.setItem('mt_entries', JSON.stringify(milkEntries));
-  }, [milkEntries]);
-
-  useEffect(() => {
-    localStorage.setItem('mt_settings', JSON.stringify(settings));
     if (settings.darkMode) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-  }, [settings]);
+  }, [settings.darkMode]);
 
-  const addCustomer = (name: string) => {
-    if (customers.find((c) => c.name.toLowerCase() === name.toLowerCase())) {
+  if (authLoading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  if (!user) return <AuthPage />;
+
+  const handleAddCustomer = (name: string) => {
+    if (customers.find(c => c.name.toLowerCase() === name.toLowerCase())) {
       toast({ title: "Error", description: "Customer already exists.", variant: "destructive" });
       return;
     }
-    const newCustomer = { id: crypto.randomUUID(), name };
-    setCustomers([...customers, newCustomer]);
-    toast({ title: "Success", description: `Customer ${name} added.` });
+    const ref = collection(db!, 'users', user.uid, 'customers');
+    addDoc(ref, { name, ownerId: user.uid });
   };
 
-  const deleteCustomer = (id: string) => {
-    const customer = customers.find((c) => c.id === id);
-    if (!customer) return;
-    setCustomers(customers.filter((c) => c.id !== id));
-    setMilkEntries(milkEntries.filter((e) => e.customerName !== customer.name));
-    toast({ title: "Success", description: "Customer deleted." });
-  };
-
-  const addEntry = (entry: Omit<MilkEntry, 'id'>) => {
-    const newEntry = { ...entry, id: Date.now() };
-    setMilkEntries([...milkEntries, newEntry]);
-    toast({ title: "Entry Added", description: `${entry.milkQuantity}L for ${entry.customerName}` });
-  };
-
-  const deleteEntry = (id: number) => {
-    setMilkEntries(milkEntries.filter((e) => e.id !== id));
-    toast({ title: "Entry Deleted" });
-  };
-
-  const updateEntry = (updated: MilkEntry) => {
-    setMilkEntries(milkEntries.map((e) => (e.id === updated.id ? updated : e)));
-    toast({ title: "Entry Updated" });
-  };
-
-  const markAsPaid = (customerName: string, fromDate: string, toDate: string) => {
-    setMilkEntries(milkEntries.map((e) => {
-      if (e.customerName === customerName && e.date >= fromDate && e.date <= toDate) {
-        return { ...e, paid: true };
-      }
-      return e;
-    }));
-    toast({ title: "Payments Updated", description: "Entries in range marked as paid." });
-  };
-
-  const toggleDarkMode = () => {
-    setSettings({ ...settings, darkMode: !settings.darkMode });
+  const handleDeleteCustomer = async (id: string, name: string) => {
+    const customerRef = doc(db!, 'users', user.uid, 'customers', id);
+    await deleteDoc(customerRef);
+    // Also delete associated entries
+    const entriesToDelete = milkEntries.filter(e => e.customerName === name);
+    for (const entry of entriesToDelete) {
+      await deleteDoc(doc(db!, 'users', user.uid, 'entries', entry.id!));
+    }
+    toast({ title: "Customer Deleted", description: `Removed ${name} and all data.` });
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 md:p-8">
-      <div className="w-full max-w-[1000px]">
-        {/* Header */}
-        <header className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentView('dashboard')}>
-            <Package2 className="h-8 w-8 text-primary" />
-            <h1 className="text-2xl font-bold text-primary tracking-tight">Milk Tracker Pro</h1>
-          </div>
+    <div className="min-h-screen p-4 md:p-8">
+      <div className="container mx-auto">
+        <header className="flex justify-between items-center mb-8 no-print">
+          <h1 className="text-2xl font-bold text-[var(--heading-color)]">Milk Tracker</h1>
           <div className="flex gap-2">
-            <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
-              {settings.darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)}>
+              <SettingsIcon className="h-6 w-6" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => setCurrentView('settings')}>
-              <Settings className="h-5 w-5" />
+            <Button variant="ghost" size="icon" onClick={() => useUser().signOut()}>
+              <LogOut className="h-6 w-6" />
             </Button>
           </div>
         </header>
 
-        {/* Content Rendering */}
-        {currentView === 'dashboard' && (
+        {currentView === 'dashboard' ? (
           <Dashboard
             customers={customers}
             milkEntries={milkEntries}
-            onAddCustomer={addCustomer}
-            onDeleteCustomer={deleteCustomer}
-            onSelectCustomer={(c) => {
-              setSelectedCustomer(c);
-              setCurrentView('customer-detail');
-            }}
+            onAddCustomer={handleAddCustomer}
+            onDeleteCustomer={handleDeleteCustomer}
+            onSelectCustomer={(c) => { setSelectedCustomer(c); setCurrentView('customer-detail'); }}
           />
-        )}
-
-        {currentView === 'customer-detail' && selectedCustomer && (
+        ) : selectedCustomer && (
           <CustomerDetail
             customer={selectedCustomer}
-            entries={milkEntries.filter((e) => e.customerName === selectedCustomer.name)}
+            entries={milkEntries.filter(e => e.customerName === selectedCustomer.name)}
             settings={settings}
             onBack={() => setCurrentView('dashboard')}
-            onAddEntry={addEntry}
-            onDeleteEntry={deleteEntry}
-            onUpdateEntry={updateEntry}
-            onMarkAsPaid={markAsPaid}
+            db={db!}
+            userId={user.uid}
           />
         )}
 
-        {currentView === 'settings' && (
-          <SettingsView
-            settings={settings}
-            onSave={(newSettings) => {
-              setSettings(newSettings);
-              setCurrentView('dashboard');
-              toast({ title: "Settings Saved" });
-            }}
-            onCancel={() => setCurrentView('dashboard')}
-            onResetData={() => {
-              setCustomers([]);
-              setMilkEntries([]);
-              localStorage.clear();
-              toast({ title: "All Data Reset" });
-            }}
-          />
-        )}
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          settings={settings}
+          onSave={(s) => setDoc(settingsRef!, { ...s, ownerId: user.uid }, { merge: true })}
+        />
       </div>
       <Toaster />
     </div>
