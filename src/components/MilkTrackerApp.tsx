@@ -1,7 +1,8 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirestore, useCollection, useDoc } from '@/firebase';
+import { useUser, useFirestore, useCollection, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, doc, addDoc, setDoc, deleteDoc, updateDoc, query, orderBy } from 'firebase/firestore';
 import AuthPage from '@/components/AuthPage';
 import Dashboard from '@/components/Dashboard';
@@ -22,7 +23,6 @@ export default function MilkTrackerApp() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Firestore Queries - Stabilized with useMemo to prevent infinite loops
   const customersQuery = useMemo(() => {
     if (!db || !user) return null;
     return query(collection(db, 'users', user.uid, 'customers'), orderBy('name'));
@@ -44,7 +44,6 @@ export default function MilkTrackerApp() {
 
   const settings = settingsData || { sellerName: '', defaultPrice: 0, darkMode: false, ownerId: user?.uid || '' };
 
-  // Handle Dark Mode Theme
   useEffect(() => {
     if (settings.darkMode) {
       document.documentElement.classList.add('dark');
@@ -62,18 +61,41 @@ export default function MilkTrackerApp() {
       return;
     }
     const ref = collection(db!, 'users', user.uid, 'customers');
-    addDoc(ref, { name, ownerId: user.uid });
+    const data = { name, ownerId: user.uid };
+    
+    addDoc(ref, data).catch(async (err) => {
+      const permissionError = new FirestorePermissionError({
+        path: ref.path,
+        operation: 'create',
+        requestResourceData: data,
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    });
   };
 
   const handleDeleteCustomer = async (id: string, name: string) => {
     const customerRef = doc(db!, 'users', user.uid, 'customers', id);
-    deleteDoc(customerRef);
+    deleteDoc(customerRef).catch(async (err) => {
+      const permissionError = new FirestorePermissionError({
+        path: customerRef.path,
+        operation: 'delete',
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    });
     toast({ title: "Customer Deleted", description: `Removed ${name}.` });
   };
 
   const handleSaveSettings = (newSettings: AppSettings) => {
     if (!settingsRef) return;
-    setDoc(settingsRef, { ...newSettings, ownerId: user.uid }, { merge: true });
+    const data = { ...newSettings, ownerId: user.uid };
+    setDoc(settingsRef, data, { merge: true }).catch(async (err) => {
+      const permissionError = new FirestorePermissionError({
+        path: settingsRef.path,
+        operation: 'write',
+        requestResourceData: data,
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    });
     toast({ title: "Settings Saved", description: "Application preferences updated." });
   };
 

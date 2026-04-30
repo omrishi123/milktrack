@@ -1,8 +1,10 @@
+
 'use client';
 
 import React, { useState } from 'react';
 import { collection, addDoc, doc, updateDoc, Firestore } from 'firebase/firestore';
 import { Customer, MilkEntry, AppSettings } from '@/lib/types';
+import { errorEmitter, FirestorePermissionError } from '@/firebase';
 import HistoryTable from './HistoryTable';
 import EntryForm from './EntryForm';
 import PaymentForm from './PaymentForm';
@@ -24,9 +26,17 @@ export default function CustomerDetail({ customer, entries, settings, onBack, db
 
   const handleAddEntry = (entryData: Omit<MilkEntry, 'id' | 'ownerId'>) => {
     const ref = collection(db, 'users', userId, 'entries');
-    addDoc(ref, {
+    const data = {
       ...entryData,
       ownerId: userId
+    };
+    addDoc(ref, data).catch(async (err) => {
+      const permissionError = new FirestorePermissionError({
+        path: ref.path,
+        operation: 'create',
+        requestResourceData: data,
+      });
+      errorEmitter.emit('permission-error', permissionError);
     });
   };
 
@@ -35,7 +45,14 @@ export default function CustomerDetail({ customer, entries, settings, onBack, db
     for (const entry of entriesToUpdate) {
       if (!entry.id) continue;
       const ref = doc(db, 'users', userId, 'entries', entry.id);
-      updateDoc(ref, { paid: true });
+      updateDoc(ref, { paid: true }).catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: ref.path,
+          operation: 'update',
+          requestResourceData: { paid: true },
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
     }
     setActiveTab('history');
   };
@@ -135,7 +152,6 @@ export default function CustomerDetail({ customer, entries, settings, onBack, db
         />
       </div>
 
-      {/* Hidden Print Area */}
       <div id="print-area" className="hidden print:block">
         <div className="text-center mb-8 border-b pb-4">
           <h1 className="text-2xl font-bold">{settings.sellerName || 'Milk Tracker Pro'}</h1>
