@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { doc, deleteDoc, Firestore } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc, Firestore } from 'firebase/firestore';
 import { MilkEntry } from '@/lib/types';
-import { Trash2, Search, Filter } from 'lucide-react';
+import { Trash2, Search, Edit2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import MilkChart from './MilkChart';
+import { Button } from '@/components/ui/button';
 
 interface HistoryTableProps {
   entries: MilkEntry[];
@@ -38,41 +39,41 @@ export default function HistoryTable({ entries, db, userId }: HistoryTableProps)
   }, [filtered]);
 
   const handleDelete = async (id: string) => {
-    if (confirm("Delete this entry?")) {
+    if (confirm("Delete this entry permanently from the cloud?")) {
       deleteDoc(doc(db, 'users', userId, 'entries', id));
     }
   };
 
   return (
-    <div className="card space-y-6">
-      <div className="history-controls no-print">
-        <div className="form-group flex-1">
-          <label>Search by Date</label>
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 no-print">
+        <div className="space-y-1">
+          <label className="text-xs font-semibold uppercase text-muted-foreground">Search Date</label>
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input 
-              className="pl-10" 
+              className="pl-9" 
               placeholder="YYYY-MM-DD" 
               value={search} 
               onChange={e => setSearch(e.target.value)} 
             />
           </div>
         </div>
-        <div className="form-group flex-1">
-          <label>Status</label>
+        <div className="space-y-1">
+          <label className="text-xs font-semibold uppercase text-muted-foreground">Status</label>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger>
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-              <SelectItem value="unpaid">Unpaid</SelectItem>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="paid">Paid Only</SelectItem>
+              <SelectItem value="unpaid">Unpaid Only</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <div className="form-group flex-1">
-          <label>Month</label>
+        <div className="space-y-1">
+          <label className="text-xs font-semibold uppercase text-muted-foreground">Month</label>
           <Select value={monthFilter} onValueChange={setMonthFilter}>
             <SelectTrigger>
               <SelectValue placeholder="All Months" />
@@ -89,54 +90,64 @@ export default function HistoryTable({ entries, db, userId }: HistoryTableProps)
         </div>
       </div>
 
-      <div className="table-container border rounded-lg overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-[var(--table-header-bg)]">
-            <tr>
-              <th className="p-4">Date</th>
-              <th className="p-4">Time</th>
-              <th className="p-4">Milk (L)</th>
-              <th className="p-4">Total (₹)</th>
-              <th className="p-4">Status</th>
-              <th className="p-4 text-right no-print">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="p-8 text-center text-muted-foreground">No entries found.</td>
+      <div className="border rounded-xl overflow-hidden bg-card">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-muted/50 border-b">
+                <th className="p-4 text-left font-semibold">Date</th>
+                <th className="p-4 text-left font-semibold">Time</th>
+                <th className="p-4 text-left font-semibold">Liters</th>
+                <th className="p-4 text-left font-semibold">Total</th>
+                <th className="p-4 text-left font-semibold">Status</th>
+                <th className="p-4 text-right no-print">Actions</th>
               </tr>
-            ) : (
-              filtered.map(e => (
-                <tr key={e.id} className="border-t hover:bg-muted/50 transition-colors">
-                  <td className="p-4 font-medium">{e.date}</td>
-                  <td className="p-4">{e.timeOfDay}</td>
-                  <td className="p-4">{e.milkQuantity.toFixed(2)}</td>
-                  <td className="p-4">₹{e.total.toFixed(2)}</td>
-                  <td className="p-4">
-                    <span className={`status-${e.paid ? 'paid' : 'unpaid'}`}>
-                      {e.paid ? 'Paid' : 'Unpaid'}
-                    </span>
-                  </td>
-                  <td className="p-4 text-right no-print">
-                    <button onClick={() => handleDelete(e.id!)} className="text-destructive hover:scale-110 transition-transform">
-                      <Trash2 size={18} />
-                    </button>
+            </thead>
+            <tbody className="divide-y">
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-12 text-center text-muted-foreground italic">
+                    No entries found matching your filters.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                filtered.map(e => (
+                  <tr key={e.id} className="hover:bg-muted/30 transition-colors">
+                    <td className="p-4 font-medium">{e.date}</td>
+                    <td className="p-4">{e.timeOfDay}</td>
+                    <td className="p-4">{e.milkQuantity.toFixed(2)} L</td>
+                    <td className="p-4 font-semibold">₹{e.total.toFixed(2)}</td>
+                    <td className="p-4">
+                      <span className={`inline-flex px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${e.paid ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                        {e.paid ? 'Paid' : 'Unpaid'}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right no-print">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="text-destructive hover:bg-destructive/10"
+                        onClick={() => handleDelete(e.id!)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div className="summary-box">
-        <div className="summary-display">Current Due: ₹{totalDue.toFixed(2)}</div>
+      <div className="bg-primary/10 border border-primary/20 p-4 rounded-xl text-center">
+        <span className="text-muted-foreground text-sm block mb-1">Total Due (Filtered)</span>
+        <span className="text-2xl font-bold text-primary">₹{totalDue.toFixed(2)}</span>
       </div>
 
-      <div className="pt-6 border-t no-print">
-        <h3 className="text-lg font-bold mb-4 text-center">Consumption Trend</h3>
-        <div className="h-[300px]">
+      <div className="pt-8 no-print border-t">
+        <h3 className="text-lg font-bold mb-6 text-center">Consumption Trends</h3>
+        <div className="h-[350px]">
           <MilkChart entries={entries} />
         </div>
       </div>

@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { collection, addDoc, doc, updateDoc, deleteDoc, Firestore } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, Firestore } from 'firebase/firestore';
 import { Customer, MilkEntry, AppSettings } from '@/lib/types';
 import HistoryTable from './HistoryTable';
 import EntryForm from './EntryForm';
 import PaymentForm from './PaymentForm';
+import AiInsights from './AiInsights';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Printer, Download } from 'lucide-react';
+import { ChevronLeft, Printer, Download, Sparkles } from 'lucide-react';
 
 interface CustomerDetailProps {
   customer: Customer;
@@ -19,7 +20,7 @@ interface CustomerDetailProps {
 }
 
 export default function CustomerDetail({ customer, entries, settings, onBack, db, userId }: CustomerDetailProps) {
-  const [activeTab, setActiveTab] = useState<'entry' | 'payment' | 'history'>('entry');
+  const [activeTab, setActiveTab] = useState<'entry' | 'payment' | 'history' | 'ai'>('entry');
 
   const handleAddEntry = (entryData: Omit<MilkEntry, 'id' | 'ownerId'>) => {
     const ref = collection(db, 'users', userId, 'entries');
@@ -32,7 +33,8 @@ export default function CustomerDetail({ customer, entries, settings, onBack, db
   const handleMarkPaid = async (fromDate: string, toDate: string) => {
     const entriesToUpdate = entries.filter(e => e.date >= fromDate && e.date <= toDate && !e.paid);
     for (const entry of entriesToUpdate) {
-      const ref = doc(db, 'users', userId, 'entries', entry.id!);
+      if (!entry.id) continue;
+      const ref = doc(db, 'users', userId, 'entries', entry.id);
       updateDoc(ref, { paid: true });
     }
     setActiveTab('history');
@@ -59,40 +61,46 @@ export default function CustomerDetail({ customer, entries, settings, onBack, db
 
   return (
     <div className="space-y-6 animate-in slide-in-from-right duration-300">
-      <div className="detail-toolbar no-print">
-        <Button variant="secondary" onClick={onBack} className="gap-2">
+      <div className="flex flex-wrap justify-between items-center gap-4 no-print">
+        <Button variant="outline" onClick={onBack} className="gap-2">
           <ChevronLeft className="h-4 w-4" /> Dashboard
         </Button>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={handlePrint} className="gap-2">
-            <Printer className="h-4 w-4" /> Print Report
+          <Button variant="outline" onClick={handlePrint} className="gap-2">
+            <Printer className="h-4 w-4" /> Print
           </Button>
-          <Button variant="secondary" onClick={handleExportCSV} className="gap-2">
-            <Download className="h-4 w-4" /> Export CSV
+          <Button variant="outline" onClick={handleExportCSV} className="gap-2">
+            <Download className="h-4 w-4" /> CSV
           </Button>
         </div>
       </div>
 
       <h2 className="text-3xl font-bold text-center text-[var(--heading-color)]">{customer.name}</h2>
 
-      <nav className="detail-nav no-print">
+      <nav className="flex flex-wrap gap-2 p-1 bg-muted rounded-lg no-print">
         <button 
-          className={`detail-nav-btn ${activeTab === 'entry' ? 'active' : ''}`} 
+          className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all ${activeTab === 'entry' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} 
           onClick={() => setActiveTab('entry')}
         >
           Add Entry
         </button>
         <button 
-          className={`detail-nav-btn ${activeTab === 'payment' ? 'active' : ''}`} 
+          className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all ${activeTab === 'payment' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} 
           onClick={() => setActiveTab('payment')}
         >
-          Mark Payments
+          Payments
         </button>
         <button 
-          className={`detail-nav-btn ${activeTab === 'history' ? 'active' : ''}`} 
+          className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all ${activeTab === 'history' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} 
           onClick={() => setActiveTab('history')}
         >
-          History & Report
+          History
+        </button>
+        <button 
+          className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all flex items-center justify-center gap-1 ${activeTab === 'ai' ? 'bg-background shadow-sm text-amber-600' : 'text-muted-foreground'}`} 
+          onClick={() => setActiveTab('ai')}
+        >
+          <Sparkles className="h-4 w-4" /> AI Insights
         </button>
       </nav>
 
@@ -120,21 +128,28 @@ export default function CustomerDetail({ customer, entries, settings, onBack, db
         />
       </div>
 
+      <div className={activeTab === 'ai' ? '' : 'hidden'}>
+        <AiInsights 
+          customerName={customer.name} 
+          entries={entries} 
+        />
+      </div>
+
       {/* Hidden Print Area */}
-      <div id="print-area" className="print-only">
+      <div id="print-area" className="hidden print:block">
         <div className="text-center mb-8 border-b pb-4">
-          <h1 className="text-2xl font-bold">{settings.sellerName || 'Milk Tracker Pro'} - Invoice</h1>
+          <h1 className="text-2xl font-bold">{settings.sellerName || 'Milk Tracker Pro'}</h1>
           <p className="text-lg">Customer: {customer.name}</p>
-          <p>Generated on: {new Date().toLocaleDateString()}</p>
+          <p>Date: {new Date().toLocaleDateString()}</p>
         </div>
         <table className="w-full border-collapse">
           <thead>
-            <tr className="bg-gray-100">
-              <th className="border p-2">Date</th>
-              <th className="border p-2">Time</th>
-              <th className="border p-2">Qty (L)</th>
-              <th className="border p-2">Total (₹)</th>
-              <th className="border p-2">Status</th>
+            <tr className="bg-muted">
+              <th className="border p-2 text-left">Date</th>
+              <th className="border p-2 text-left">Time</th>
+              <th className="border p-2 text-left">Qty (L)</th>
+              <th className="border p-2 text-left">Total (₹)</th>
+              <th className="border p-2 text-left">Status</th>
             </tr>
           </thead>
           <tbody>

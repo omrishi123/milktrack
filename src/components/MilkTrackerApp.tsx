@@ -10,7 +10,7 @@ import SettingsModal from '@/components/SettingsModal';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
-import { Settings as SettingsIcon, LogOut } from 'lucide-react';
+import { Settings as SettingsIcon, LogOut, Loader2 } from 'lucide-react';
 import { Customer, MilkEntry, AppSettings } from '@/lib/types';
 
 export default function MilkTrackerApp() {
@@ -22,7 +22,7 @@ export default function MilkTrackerApp() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  // Firestore Queries
+  // Firestore Queries - Stabilized with useMemo to prevent infinite loops
   const customersQuery = useMemo(() => {
     if (!db || !user) return null;
     return query(collection(db, 'users', user.uid, 'customers'), orderBy('name'));
@@ -38,23 +38,22 @@ export default function MilkTrackerApp() {
     return doc(db, 'users', user.uid, 'settings', 'config');
   }, [db, user]);
 
-  const { data: customers = [] } = useCollection<Customer>(customersQuery);
-  const { data: milkEntries = [] } = useCollection<MilkEntry>(entriesQuery);
-  const { data: settingsData } = useDoc<AppSettings>(settingsRef);
+  const { data: customers = [], loading: customersLoading } = useCollection<Customer>(customersQuery);
+  const { data: milkEntries = [], loading: entriesLoading } = useCollection<MilkEntry>(entriesQuery);
+  const { data: settingsData, loading: settingsLoading } = useDoc<AppSettings>(settingsRef);
 
   const settings = settingsData || { sellerName: '', defaultPrice: 0, darkMode: false, ownerId: user?.uid || '' };
 
+  // Handle Dark Mode Theme
   useEffect(() => {
     if (settings.darkMode) {
       document.documentElement.classList.add('dark');
-      document.body.classList.add('dark-mode');
     } else {
       document.documentElement.classList.remove('dark');
-      document.body.classList.remove('dark-mode');
     }
   }, [settings.darkMode]);
 
-  if (authLoading) return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  if (authLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /></div>;
   if (!user) return <AuthPage />;
 
   const handleAddCustomer = (name: string) => {
@@ -69,18 +68,18 @@ export default function MilkTrackerApp() {
   const handleDeleteCustomer = async (id: string, name: string) => {
     const customerRef = doc(db!, 'users', user.uid, 'customers', id);
     deleteDoc(customerRef);
-    // Associated entries are kept for record or could be cleaned up if desired
     toast({ title: "Customer Deleted", description: `Removed ${name}.` });
   };
 
   const handleSaveSettings = (newSettings: AppSettings) => {
-    setDoc(settingsRef!, { ...newSettings, ownerId: user.uid }, { merge: true });
+    if (!settingsRef) return;
+    setDoc(settingsRef, { ...newSettings, ownerId: user.uid }, { merge: true });
     toast({ title: "Settings Saved", description: "Application preferences updated." });
   };
 
   return (
-    <div className="container mx-auto">
-      <header className="flex justify-between items-center mb-8 no-print pt-6">
+    <div className="container mx-auto px-4 pb-12">
+      <header className="flex justify-between items-center mb-8 no-print pt-6 border-b pb-4">
         <h1 className="text-2xl font-bold text-[var(--heading-color)] m-0">Milk Tracker</h1>
         <div className="flex gap-2">
           <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)}>
