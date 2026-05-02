@@ -33,4 +33,5 @@ export interface UserProfile {
   upiId?: string;
   address?: string;
   photoBase64?: string;
+  businessLogoBase64?: string;
 }

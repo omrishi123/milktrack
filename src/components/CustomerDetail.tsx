@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useRef } from 'react';
@@ -9,7 +10,7 @@ import EntryForm from './EntryForm';
 import PaymentForm from './PaymentForm';
 import AiInsights from './AiInsights';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Printer, Download, Sparkles, Phone, MapPin, MessageCircle, Share2, Loader2, FileText, Send } from 'lucide-react';
+import { ChevronLeft, Printer, Download, Sparkles, Phone, MapPin, MessageCircle, Share2, Loader2, FileText, Send, Droplets } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '@/hooks/use-toast';
 import html2canvas from 'html2canvas';
@@ -93,7 +94,6 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     if (!printAreaRef.current) return null;
     
     const originalStyle = printAreaRef.current.style.cssText;
-    // Set explicit styles to help html2canvas and ensure a fixed width for consistent rendering
     printAreaRef.current.style.cssText = "display: block !important; position: absolute; left: 0; top: 0; width: 800px; background: white; visibility: visible !important; color: black !important; z-index: 9999; padding: 40px;";
     
     try {
@@ -107,17 +107,15 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       
-      const imgWidth = 210; // A4 width in mm
-      const pageHeight = 295; // Slightly less than A4 height (297) for safe margin
+      const imgWidth = 210; 
+      const pageHeight = 295; 
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       let heightLeft = imgHeight;
       let position = 0;
 
-      // Add the first page
       pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
 
-      // Loop to add subsequent pages if content exceeds one page height
       while (heightLeft > 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
@@ -278,19 +276,30 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       {/* PROFESSONAL BILL PRINT AREA */}
       <div id="print-area" ref={printAreaRef} className="hidden print:block font-serif text-black bg-white p-8 border">
         <div className="flex justify-between items-start border-b-4 border-black pb-4 mb-6">
-          <div>
-            <h1 className="text-3xl font-black uppercase tracking-tighter leading-tight">{settings.sellerName || profile.displayName || 'MILK TRACKER PRO'}</h1>
-            {profile.address && <p className="text-sm font-medium mt-1">{profile.address}</p>}
-            <div className="flex gap-4 mt-2 text-xs font-bold">
-              {profile.mobileNumber && <span>📞 {profile.mobileNumber}</span>}
-              {profile.upiId && <span>💳 UPI: {profile.upiId}</span>}
+          <div className="flex items-start gap-4">
+             {profile.businessLogoBase64 ? (
+               <div className="h-20 w-20 overflow-hidden border-2 border-black p-2 bg-white">
+                 <img src={profile.businessLogoBase64} alt="Business Logo" className="w-full h-full object-contain" />
+               </div>
+             ) : (
+               <div className="h-20 w-20 border-2 border-black flex items-center justify-center p-2">
+                 <Droplets className="h-10 w-10 text-black" />
+               </div>
+             )}
+            <div>
+              <h1 className="text-3xl font-black uppercase tracking-tighter leading-tight">{settings.sellerName || profile.displayName || 'MILK TRACKER PRO'}</h1>
+              {profile.address && <p className="text-sm font-medium mt-1">{profile.address}</p>}
+              <div className="flex gap-4 mt-2 text-xs font-bold">
+                {profile.mobileNumber && <span>📞 {profile.mobileNumber}</span>}
+                {profile.upiId && <span>💳 UPI: {profile.upiId}</span>}
+              </div>
             </div>
           </div>
           <div className="text-right">
             <h2 className="text-4xl font-black text-gray-300">INVOICE</h2>
             <p className="text-sm font-bold mt-2">Bill Date: {new Date().toLocaleDateString()}</p>
             <div className="mt-2 flex justify-end">
-              <span className="text-xs text-black px-0 py-1 uppercase font-bold leading-none inline-block border-b-2 border-black">
+              <span className="text-xs text-black py-1 uppercase font-bold leading-none inline-block border-b-2 border-black">
                 Period: {billStats.dateRange}
               </span>
             </div>

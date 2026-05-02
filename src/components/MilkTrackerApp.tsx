@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -140,11 +141,19 @@ export default function MilkTrackerApp() {
           className="flex items-center gap-3 cursor-pointer group" 
           onClick={() => setCurrentView('dashboard')}
         >
-          <div className="bg-primary p-2 rounded-xl shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
-            <Droplets className="h-6 w-6 text-white" />
-          </div>
+          {profile.businessLogoBase64 ? (
+            <div className="h-10 w-10 overflow-hidden rounded-lg shadow-md border-2 border-primary/20 bg-white p-1">
+               <img src={profile.businessLogoBase64} alt="Brand Logo" className="w-full h-full object-contain" />
+            </div>
+          ) : (
+            <div className="bg-primary p-2 rounded-xl shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
+              <Droplets className="h-6 w-6 text-white" />
+            </div>
+          )}
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-[var(--heading-color)] m-0">Milk Tracker</h1>
+            <h1 className="text-2xl font-black tracking-tight text-[var(--heading-color)] m-0">
+              {settings.sellerName || 'Milk Tracker'}
+            </h1>
             <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest -mt-1">Professional Edition</p>
           </div>
         </div>
