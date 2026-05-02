@@ -10,7 +10,8 @@ import EntryForm from './EntryForm';
 import PaymentForm from './PaymentForm';
 import AiInsights from './AiInsights';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Printer, Download, Sparkles, Phone, MapPin, CreditCard } from 'lucide-react';
+import { ChevronLeft, Printer, Download, Sparkles, Phone, MapPin, CreditCard, QrCode } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface CustomerDetailProps {
   customer: Customer;
@@ -23,7 +24,7 @@ interface CustomerDetailProps {
 }
 
 export default function CustomerDetail({ customer, entries, settings, profile, onBack, db, userId }: CustomerDetailProps) {
-  const [activeTab, setActiveTab] = useState<'entry' | 'payment' | 'history' | 'ai'>('entry');
+  const [activeTab, setActiveTab] = useState<'entry' | 'history' | 'payment' | 'ai'>('entry');
 
   const billStats = useMemo(() => {
     const totalLiters = entries.reduce((sum, e) => sum + e.milkQuantity, 0);
@@ -32,6 +33,15 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     const totalDue = entries.filter(e => !e.paid).reduce((sum, e) => sum + e.total, 0);
     return { totalLiters, totalAmount, totalPaid, totalDue };
   }, [entries]);
+
+  // Construct UPI Payment URI
+  const upiUri = useMemo(() => {
+    if (!profile.upiId || billStats.totalDue <= 0) return null;
+    const payeeName = encodeURIComponent(settings.sellerName || profile.displayName || 'Milk Seller');
+    const amount = billStats.totalDue.toFixed(2);
+    // Standard UPI URI format: upi://pay?pa=<address>&pn=<name>&am=<amount>&cu=INR
+    return `upi://pay?pa=${profile.upiId}&pn=${payeeName}&am=${amount}&cu=INR&tn=Milk%20Bill%20Payment`;
+  }, [profile.upiId, profile.displayName, settings.sellerName, billStats.totalDue]);
 
   const handleAddEntry = (entryData: Omit<MilkEntry, 'id' | 'ownerId'>) => {
     const ref = collection(db, 'users', userId, 'entries');
@@ -117,16 +127,16 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
           Add Entry
         </button>
         <button 
-          className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all ${activeTab === 'payment' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} 
-          onClick={() => setActiveTab('payment')}
-        >
-          Payments
-        </button>
-        <button 
           className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all ${activeTab === 'history' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} 
           onClick={() => setActiveTab('history')}
         >
           History
+        </button>
+        <button 
+          className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all ${activeTab === 'payment' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} 
+          onClick={() => setActiveTab('payment')}
+        >
+          Payments
         </button>
         <button 
           className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all flex items-center justify-center gap-1 ${activeTab === 'ai' ? 'bg-background shadow-sm text-amber-600' : 'text-muted-foreground'}`} 
@@ -174,7 +184,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
             <h1 className="text-2xl font-bold uppercase tracking-wider">{settings.sellerName || profile.displayName || 'MILK TRACKER PRO'}</h1>
             {profile.address && <p className="text-sm italic">{profile.address}</p>}
             {profile.mobileNumber && <p className="text-sm">Mobile: {profile.mobileNumber}</p>}
-            {profile.upiId && <p className="text-sm font-semibold flex items-center gap-1"><CreditCard className="h-3 w-3" /> UPI: {profile.upiId}</p>}
+            {profile.upiId && <p className="text-sm font-semibold flex items-center gap-1"><CreditCard className="h-3 w-3" /> UPI ID: {profile.upiId}</p>}
           </div>
           <div className="text-right">
             <h2 className="text-xl font-bold">INVOICE</h2>
@@ -216,7 +226,21 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
           </tbody>
         </table>
 
-        <div className="flex justify-end">
+        <div className="flex justify-between items-start gap-8">
+          <div className="flex flex-col items-center">
+            {upiUri ? (
+              <div className="border p-2 bg-white flex flex-col items-center gap-1">
+                <QRCodeSVG value={upiUri} size={100} level="M" />
+                <p className="text-[8px] font-bold text-gray-500 uppercase">Scan to Pay UPI</p>
+                <p className="text-[10px] font-black">₹{billStats.totalDue.toFixed(2)}</p>
+              </div>
+            ) : (
+              <div className="h-[120px] w-[120px] flex items-center justify-center border border-dashed text-[10px] text-gray-400 text-center px-4">
+                {billStats.totalDue <= 0 ? 'No Balance Due' : 'Set UPI ID in Profile to show QR'}
+              </div>
+            )}
+          </div>
+          
           <div className="w-64 space-y-2 border-t-2 border-black pt-4">
             <div className="flex justify-between text-sm">
               <span>Total Milk:</span>
