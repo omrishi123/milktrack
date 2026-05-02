@@ -28,3 +28,4 @@ This app uses Firebase Firestore for data and Firebase Authentication for user a
 - **AI**: Genkit (Gemini 2.5 Flash)
 - **UI**: ShadCN UI + Tailwind CSS
 - **Utilities**: html2canvas, jspdf (for PDF generation), qrcode.react (for UPI QR codes)
+# milktrack
