@@ -95,7 +95,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     
     // Temporarily adjust for capture
     const originalStyle = printAreaRef.current.style.cssText;
-    printAreaRef.current.style.cssText = "display: block !important; position: absolute; left: 0; top: 0; width: 800px; background: white; visibility: visible !important;";
+    printAreaRef.current.style.cssText = "display: block !important; position: absolute; left: 0; top: 0; width: 800px; background: white; visibility: visible !important; color: black !important; z-index: 9999;";
     
     try {
       const canvas = await html2canvas(printAreaRef.current, {
@@ -131,29 +131,50 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
 
     const file = new File([pdfBlob], `Bill_${customer.name}.pdf`, { type: 'application/pdf' });
     const businessName = settings.sellerName || profile.displayName || 'Milk Tracker Pro';
-    const text = `*🍼 MILK BILL SUMMARY*\n*Seller:* ${businessName}\n*Customer:* ${customer.name}\n*Period:* ${billStats.dateRange}\n*BALANCE DUE: ₹${billStats.totalDue.toFixed(2)}*`;
+    
+    const billText = `*🍼 MILK BILL SUMMARY*\n` +
+                     `*Seller:* ${businessName}\n` +
+                     `*Customer:* ${customer.name}\n` +
+                     `*Period:* ${billStats.dateRange}\n\n` +
+                     `*Total Volume:* ${billStats.totalLiters.toFixed(2)} L\n` +
+                     `*Total Amount:* ₹${billStats.totalAmount.toFixed(2)}\n` +
+                     `*Payment Received:* ₹${billStats.totalPaid.toFixed(2)}\n` +
+                     `--------------------------\n` +
+                     `*BALANCE DUE: ₹${billStats.totalDue.toFixed(2)}*\n` +
+                     `--------------------------\n\n` +
+                     `Please find the detailed PDF invoice attached. Thank you!`;
 
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+    const shareData = {
+      files: [file],
+      title: 'Milk Bill Invoice',
+      text: billText
+    };
+
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
       try {
-        await navigator.share({
-          files: [file],
-          title: 'Milk Bill PDF',
-          text: text
-        });
-      } catch (err) {
-        // Fallback to text share if user cancels or file share fails
-        window.open(`https://wa.me/${customer.phoneNumber?.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
+        await navigator.share(shareData);
+      } catch (err: any) {
+        // If user cancelled or error, fallback to WhatsApp only link
+        if (err.name !== 'AbortError') {
+          openWhatsAppFallback(billText);
+        }
       }
     } else {
-      // Desktop fallback: Download and open text
+      // Desktop or unsupported browser fallback
+      openWhatsAppFallback(billText);
       const url = URL.createObjectURL(pdfBlob);
       const link = document.createElement('a');
       link.href = url;
       link.download = `Bill_${customer.name}.pdf`;
       link.click();
-      window.open(`https://wa.me/${customer.phoneNumber?.replace(/\D/g, '')}?text=${encodeURIComponent(text + '\n(PDF Downloaded to device)')}`, '_blank');
-      toast({ title: "PDF Generated", description: "Bill downloaded. Please share manually on desktop." });
+      toast({ title: "PDF Downloaded", description: "Bill downloaded. Please attach manually to WhatsApp." });
     }
+  };
+
+  const openWhatsAppFallback = (text: string) => {
+    const phone = customer.phoneNumber?.replace(/\D/g, '');
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank');
   };
 
   return (
