@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -12,6 +11,7 @@ import AiInsights from './AiInsights';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, Printer, Download, Sparkles, Phone, MapPin, CreditCard, QrCode } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { useToast } from '@/hooks/use-toast';
 
 interface CustomerDetailProps {
   customer: Customer;
@@ -25,6 +25,7 @@ interface CustomerDetailProps {
 
 export default function CustomerDetail({ customer, entries, settings, profile, onBack, db, userId }: CustomerDetailProps) {
   const [activeTab, setActiveTab] = useState<'entry' | 'history' | 'payment' | 'ai'>('entry');
+  const { toast } = useToast();
 
   const billStats = useMemo(() => {
     const totalLiters = entries.reduce((sum, e) => sum + e.milkQuantity, 0);
@@ -57,10 +58,25 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       });
       errorEmitter.emit('permission-error', permissionError);
     });
+
+    toast({
+      title: "Entry Recorded",
+      description: `${entryData.milkQuantity}L delivery for ${entryData.customerName} saved successfully.`
+    });
   };
 
   const handleMarkPaid = async (fromDate: string, toDate: string) => {
     const entriesToUpdate = entries.filter(e => e.date >= fromDate && e.date <= toDate && !e.paid);
+    
+    if (entriesToUpdate.length === 0) {
+      toast({
+        title: "No Entries Found",
+        description: "No unpaid entries were found in the selected date range.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     for (const entry of entriesToUpdate) {
       if (!entry.id) continue;
       const ref = doc(db, 'users', userId, 'entries', entry.id);
@@ -73,6 +89,12 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
         errorEmitter.emit('permission-error', permissionError);
       });
     }
+
+    toast({
+      title: "Payments Updated",
+      description: `Marked ${entriesToUpdate.length} entries as paid for ${customer.name}.`
+    });
+    
     setActiveTab('history');
   };
 
