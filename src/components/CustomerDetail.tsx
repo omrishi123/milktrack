@@ -93,7 +93,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     if (!printAreaRef.current) return null;
     
     const originalStyle = printAreaRef.current.style.cssText;
-    // Set explicit styles to help html2canvas
+    // Set explicit styles to help html2canvas and ensure a fixed width for consistent rendering
     printAreaRef.current.style.cssText = "display: block !important; position: absolute; left: 0; top: 0; width: 800px; background: white; visibility: visible !important; color: black !important; z-index: 9999; padding: 40px;";
     
     try {
@@ -102,17 +102,29 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
         useCORS: true,
         backgroundColor: '#ffffff',
         logging: false,
-        scrollY: -window.scrollY,
-        scrollX: -window.scrollX,
-        windowWidth: 800
       });
       
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 295; // Slightly less than A4 height (297) for safe margin
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Add the first page
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Loop to add subsequent pages if content exceeds one page height
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      
       return pdf.output('blob');
     } catch (err) {
       console.error("PDF Gen Error:", err);
