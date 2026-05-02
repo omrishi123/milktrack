@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -25,7 +26,6 @@
     --ring: 222.2 84% 4.9%;
     --radius: 12px;
 
-    /* Custom variables for the old design match */
     --bg-color: #f4f7fc;
     --card-bg-color: #ffffff;
     --text-color: #212529;
@@ -55,7 +55,6 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
 
-    /* Custom variables for the old design match */
     --bg-color: #0a0b0d;
     --card-bg-color: #12141a;
     --text-color: #e0e0e0;
@@ -78,8 +77,20 @@
 }
 
 @media print {
-  .no-print { display: none !important; }
+  .no-print, header, nav, footer, button, .toaster { display: none !important; }
   body { background-color: white !important; color: black !important; padding: 0 !important; margin: 0 !important; }
   .container { max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
-  #print-area { display: block !important; visibility: visible !important; width: 100% !important; }
+  #print-area { 
+    display: block !important; 
+    visibility: visible !important; 
+    width: 100% !important; 
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 9999;
+    padding: 20px;
+    background: white;
+  }
+  /* Explicitly hide all other content to prevent "leakage" */
+  body > div:not(#print-area) { display: none !important; }
 }
