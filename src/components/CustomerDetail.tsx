@@ -93,14 +93,18 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     if (!printAreaRef.current) return null;
     
     const originalStyle = printAreaRef.current.style.cssText;
-    printAreaRef.current.style.cssText = "display: block !important; position: absolute; left: 0; top: 0; width: 800px; background: white; visibility: visible !important; color: black !important; z-index: 9999;";
+    // Set explicit styles to help html2canvas
+    printAreaRef.current.style.cssText = "display: block !important; position: absolute; left: 0; top: 0; width: 800px; background: white; visibility: visible !important; color: black !important; z-index: 9999; padding: 40px;";
     
     try {
       const canvas = await html2canvas(printAreaRef.current, {
         scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
-        logging: false
+        logging: false,
+        scrollY: -window.scrollY,
+        scrollX: -window.scrollX,
+        windowWidth: 800
       });
       
       const imgData = canvas.toDataURL('image/png');
@@ -263,7 +267,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       <div id="print-area" ref={printAreaRef} className="hidden print:block font-serif text-black bg-white p-8 border">
         <div className="flex justify-between items-start border-b-4 border-black pb-4 mb-6">
           <div>
-            <h1 className="text-3xl font-black uppercase tracking-tighter">{settings.sellerName || profile.displayName || 'MILK TRACKER PRO'}</h1>
+            <h1 className="text-3xl font-black uppercase tracking-tighter leading-tight">{settings.sellerName || profile.displayName || 'MILK TRACKER PRO'}</h1>
             {profile.address && <p className="text-sm font-medium mt-1">{profile.address}</p>}
             <div className="flex gap-4 mt-2 text-xs font-bold">
               {profile.mobileNumber && <span>📞 {profile.mobileNumber}</span>}
@@ -273,7 +277,11 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
           <div className="text-right">
             <h2 className="text-4xl font-black text-gray-300">INVOICE</h2>
             <p className="text-sm font-bold mt-2">Bill Date: {new Date().toLocaleDateString()}</p>
-            <p className="text-xs bg-black text-white px-2 py-1 mt-1 inline-block uppercase">Period: {billStats.dateRange}</p>
+            <div className="mt-2 flex justify-end">
+              <span className="text-xs bg-black text-white px-2 py-1 uppercase font-bold leading-none inline-block">
+                Period: {billStats.dateRange}
+              </span>
+            </div>
           </div>
         </div>
         
@@ -303,10 +311,12 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
                 <td className="py-3 px-2 text-right">{e.milkQuantity.toFixed(2)}</td>
                 <td className="py-3 px-2 text-right">{e.price.toFixed(2)}</td>
                 <td className="py-3 px-2 text-right font-bold">₹{e.total.toFixed(2)}</td>
-                <td className="py-3 px-2 text-center">
-                  <span className={`text-[9px] px-1 py-0.5 border border-black font-black uppercase ${e.paid ? 'bg-black text-white' : ''}`}>
-                    {e.paid ? 'PAID' : 'DUE'}
-                  </span>
+                <td className="py-3 px-2 text-center align-middle">
+                  <div className="flex justify-center items-center h-full">
+                    <span className={`text-[10px] px-1.5 py-0.5 border border-black font-black uppercase leading-none inline-block ${e.paid ? 'bg-black text-white' : 'bg-white text-black'}`}>
+                      {e.paid ? 'PAID' : 'DUE'}
+                    </span>
+                  </div>
                 </td>
               </tr>
             ))}
