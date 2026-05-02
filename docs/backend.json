@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Customer": {
@@ -6,6 +7,8 @@
       "type": "object",
       "properties": {
         "name": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "address": { "type": "string" },
         "ownerId": { "type": "string" }
       },
       "required": ["name", "ownerId"]

@@ -79,4 +79,7 @@
 
 @media print {
   .no-print { display: none !important; }
+  body { background-color: white !important; color: black !important; padding: 0 !important; margin: 0 !important; }
+  .container { max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
+  #print-area { display: block !important; visibility: visible !important; width: 100% !important; }
 }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -64,13 +65,13 @@ export default function MilkTrackerApp() {
   if (authLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-primary" /></div>;
   if (!user) return <AuthPage />;
 
-  const handleAddCustomer = (name: string) => {
-    if (customers.find(c => c.name.toLowerCase() === name.toLowerCase())) {
+  const handleAddCustomer = (customerData: Omit<Customer, 'ownerId'>) => {
+    if (customers.find(c => c.name.toLowerCase() === customerData.name.toLowerCase())) {
       toast({ title: "Error", description: "Customer already exists.", variant: "destructive" });
       return;
     }
     const ref = collection(db!, 'users', user.uid, 'customers');
-    const data = { name, ownerId: user.uid };
+    const data = { ...customerData, ownerId: user.uid };
     
     addDoc(ref, data).catch(async (err) => {
       const permissionError = new FirestorePermissionError({
@@ -80,6 +81,7 @@ export default function MilkTrackerApp() {
       });
       errorEmitter.emit('permission-error', permissionError);
     });
+    toast({ title: "Customer Added", description: `${customerData.name} saved successfully.` });
   };
 
   const handleDeleteCustomer = async (id: string, name: string) => {
@@ -159,6 +161,7 @@ export default function MilkTrackerApp() {
           customer={selectedCustomer}
           entries={milkEntries.filter(e => e.customerName === selectedCustomer.name)}
           settings={settings}
+          profile={profile}
           onBack={() => { setCurrentView('dashboard'); setSelectedCustomer(null); }}
           db={db!}
           userId={user.uid}
