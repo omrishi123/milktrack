@@ -38,6 +38,15 @@ export default function Dashboard({ customers, milkEntries, onAddCustomer, onUpd
     }
   }, [customers.length]);
 
+  const formatPhoneNumber = (num: string) => {
+    const clean = num.trim();
+    if (!clean) return undefined;
+    // If it already has a country code, return as is
+    if (clean.startsWith('+')) return clean;
+    // Otherwise prepend +91 for Indian numbers
+    return `+91${clean.replace(/\s+/g, '')}`;
+  };
+
   const now = new Date();
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   
@@ -50,7 +59,7 @@ export default function Dashboard({ customers, milkEntries, onAddCustomer, onUpd
     if (name.trim()) {
       onAddCustomer({ 
         name: name.trim(), 
-        phoneNumber: phoneNumber.trim() || undefined, 
+        phoneNumber: formatPhoneNumber(phoneNumber), 
         address: address.trim() || undefined 
       });
       setName('');
@@ -69,7 +78,7 @@ export default function Dashboard({ customers, milkEntries, onAddCustomer, onUpd
     if (editingCustomer && editingCustomer.id) {
       onUpdateCustomer(editingCustomer.id, {
         name: editingCustomer.name,
-        phoneNumber: editingCustomer.phoneNumber,
+        phoneNumber: editingCustomer.phoneNumber ? formatPhoneNumber(editingCustomer.phoneNumber) : undefined,
         address: editingCustomer.address
       });
       setIsEditOpen(false);
@@ -98,7 +107,7 @@ export default function Dashboard({ customers, milkEntries, onAddCustomer, onUpd
         <div className="bg-blue-500/10 border border-blue-500/20 p-5 rounded-2xl flex flex-col items-center justify-center shadow-sm">
           <Droplets className="h-5 w-5 text-blue-600 mb-2" />
           <h3 className="text-[10px] font-bold uppercase text-muted-foreground mb-1">Monthly Milk</h3>
-          <p className="text-2xl font-black text-blue-600 dark:text-blue-400">{monthlyMilk.toFixed(1)} L</p>
+          <p className="text-2xl font-black text-blue-600 dark:text-red-400">{monthlyMilk.toFixed(1)} L</p>
         </div>
         <div className="bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-2xl flex flex-col items-center justify-center shadow-sm">
           <TrendingUp className="h-5 w-5 text-emerald-600 mb-2" />
@@ -179,8 +188,8 @@ export default function Dashboard({ customers, milkEntries, onAddCustomer, onUpd
                 <Input id="customer-name" placeholder="e.g. Rahul Sharma" value={name} onChange={(e) => setName(e.target.value)} className="h-12 text-lg" required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="customer-phone" className="text-sm font-bold">Phone Number (Required for WhatsApp)</Label>
-                <Input id="customer-phone" placeholder="+91 00000 00000" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className="h-12" />
+                <Label htmlFor="customer-phone" className="text-sm font-bold">Phone Number</Label>
+                <Input id="customer-phone" placeholder="e.g. 9876543210 (Country code +91 added automatically)" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className="h-12" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="customer-address" className="text-sm font-bold">Full Address (For Invoices)</Label>
@@ -220,6 +229,7 @@ export default function Dashboard({ customers, milkEntries, onAddCustomer, onUpd
                 <Label htmlFor="edit-phone">Phone Number</Label>
                 <Input
                   id="edit-phone"
+                  placeholder="e.g. 9876543210"
                   value={editingCustomer.phoneNumber || ''}
                   onChange={e => setEditingCustomer({...editingCustomer, phoneNumber: e.target.value})}
                 />
