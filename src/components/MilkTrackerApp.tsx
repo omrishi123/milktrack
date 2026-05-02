@@ -11,7 +11,7 @@ import ProfilePage from '@/components/ProfilePage';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
-import { Settings as SettingsIcon, User as UserIcon, Loader2, Home } from 'lucide-react';
+import { Settings as SettingsIcon, User as UserIcon, Loader2, Home, Droplets } from 'lucide-react';
 import { Customer, MilkEntry, AppSettings, UserProfile } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -136,8 +136,17 @@ export default function MilkTrackerApp() {
   return (
     <div className="container mx-auto px-4 pb-12">
       <header className="flex justify-between items-center mb-8 no-print pt-6 border-b pb-4">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentView('dashboard')}>
-          <h1 className="text-2xl font-bold text-[var(--heading-color)] m-0">Milk Tracker</h1>
+        <div 
+          className="flex items-center gap-3 cursor-pointer group" 
+          onClick={() => setCurrentView('dashboard')}
+        >
+          <div className="bg-primary p-2 rounded-xl shadow-lg shadow-primary/20 group-hover:scale-105 transition-transform">
+            <Droplets className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-[var(--heading-color)] m-0">Milk Tracker</h1>
+            <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest -mt-1">Professional Edition</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {currentView !== 'dashboard' && (
