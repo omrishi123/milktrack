@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useRef } from 'react';
@@ -93,7 +92,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
   const generatePdfBlob = async (): Promise<Blob | null> => {
     if (!printAreaRef.current) return null;
     
-    // Temporarily adjust for capture
+    // Temporarily make it visible for capture
     const originalStyle = printAreaRef.current.style.cssText;
     printAreaRef.current.style.cssText = "display: block !important; position: absolute; left: 0; top: 0; width: 800px; background: white; visibility: visible !important; color: black !important; z-index: 9999;";
     
@@ -101,7 +100,8 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       const canvas = await html2canvas(printAreaRef.current, {
         scale: 2,
         useCORS: true,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        logging: false
       });
       
       const imgData = canvas.toDataURL('image/png');
@@ -112,7 +112,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       return pdf.output('blob');
     } catch (err) {
-      console.error(err);
+      console.error("PDF Gen Error:", err);
       return null;
     } finally {
       printAreaRef.current.style.cssText = originalStyle;
@@ -131,7 +131,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       link.download = `Bill_${customer.name}_${new Date().toISOString().split('T')[0]}.pdf`;
       link.click();
       URL.revokeObjectURL(url);
-      toast({ title: "Download Started", description: "PDF bill saved to your device." });
+      toast({ title: "Success", description: "PDF bill downloaded successfully." });
     } else {
       toast({ title: "Error", description: "Could not generate PDF.", variant: "destructive" });
     }
@@ -142,14 +142,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     const pdfBlob = await generatePdfBlob();
     setIsGeneratingPdf(false);
 
-    if (!pdfBlob) {
-      toast({ title: "Error", description: "Could not generate PDF.", variant: "destructive" });
-      return;
-    }
-
-    const file = new File([pdfBlob], `Bill_${customer.name}.pdf`, { type: 'application/pdf' });
     const businessName = settings.sellerName || profile.displayName || 'Milk Tracker Pro';
-    
     const billText = `*🍼 MILK BILL SUMMARY*\n` +
                      `*Seller:* ${businessName}\n` +
                      `*Customer:* ${customer.name}\n` +
@@ -162,30 +155,30 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
                      `--------------------------\n\n` +
                      `Please find the detailed PDF invoice attached. Thank you!`;
 
-    const shareData = {
-      files: [file],
-      title: 'Milk Bill Invoice',
-      text: billText
-    };
-
-    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+    if (pdfBlob && navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], 'bill.pdf', { type: 'application/pdf' })] })) {
+      const file = new File([pdfBlob], `Bill_${customer.name.replace(/\s+/g, '_')}.pdf`, { type: 'application/pdf' });
       try {
-        await navigator.share(shareData);
+        await navigator.share({
+          files: [file],
+          title: 'Milk Bill Invoice',
+          text: billText
+        });
       } catch (err: any) {
-        // If user cancelled or error, fallback to WhatsApp only link
         if (err.name !== 'AbortError') {
           openWhatsAppFallback(billText);
         }
       }
     } else {
-      // Desktop or unsupported browser fallback
+      // Fallback for Desktop/Non-sharing browsers
+      if (pdfBlob) {
+        const url = URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Bill_${customer.name}.pdf`;
+        link.click();
+        toast({ title: "PDF Downloaded", description: "Please attach the file manually in WhatsApp." });
+      }
       openWhatsAppFallback(billText);
-      const url = URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Bill_${customer.name}.pdf`;
-      link.click();
-      toast({ title: "PDF Downloaded", description: "Bill downloaded. Please attach manually to WhatsApp." });
     }
   };
 
@@ -222,18 +215,6 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
           </Button>
           <Button variant="outline" onClick={() => window.print()} className="gap-2 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
             <Printer className="h-4 w-4" /> Professional Print
-          </Button>
-          <Button variant="outline" onClick={() => {
-            let csv = "Date,Time,Milk(L),Rate,Total,Status\n";
-            entries.forEach(e => csv += `${e.date},${e.timeOfDay},${e.milkQuantity},${e.price},${e.total.toFixed(2)},${e.paid ? 'Paid' : 'Unpaid'}\n`);
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `${customer.name}_milk_report.csv`;
-            link.click();
-          }} className="gap-2">
-            <Download className="h-4 w-4" /> CSV
           </Button>
         </div>
       </div>
@@ -324,7 +305,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
           <div className="flex flex-col items-center">
             {upiUri ? (
               <div className="border-2 border-black p-4 bg-white shadow-md flex flex-col items-center gap-3">
-                <QRCodeSVG value={upiUri} size={140} level="H" />
+                <QRCodeSVG value={decodeURIComponent(upiUri)} size={140} level="H" />
                 <div className="text-center">
                   <p className="text-[10px] font-black text-gray-700 uppercase">SCAN TO PAY (UPI)</p>
                   <p className="text-lg font-black mt-1">₹{billStats.totalDue.toFixed(2)}</p>
