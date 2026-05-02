@@ -9,7 +9,7 @@ import EntryForm from './EntryForm';
 import PaymentForm from './PaymentForm';
 import AiInsights from './AiInsights';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Printer, Download, Sparkles, Phone, MapPin, MessageCircle, Share2, Loader2, FileText } from 'lucide-react';
+import { ChevronLeft, Printer, Download, Sparkles, Phone, MapPin, MessageCircle, Share2, Loader2, FileText, Send } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '@/hooks/use-toast';
 import html2canvas from 'html2canvas';
@@ -92,7 +92,6 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
   const generatePdfBlob = async (): Promise<Blob | null> => {
     if (!printAreaRef.current) return null;
     
-    // Temporarily make it visible for capture
     const originalStyle = printAreaRef.current.style.cssText;
     printAreaRef.current.style.cssText = "display: block !important; position: absolute; left: 0; top: 0; width: 800px; background: white; visibility: visible !important; color: black !important; z-index: 9999;";
     
@@ -136,28 +135,37 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     return false;
   };
 
+  const getBillText = () => {
+    const businessName = settings.sellerName || profile.displayName || 'Milk Tracker Pro';
+    return `*🍼 MILK BILL SUMMARY*\n` +
+           `*Seller:* ${businessName}\n` +
+           `*Customer:* ${customer.name}\n` +
+           `*Period:* ${billStats.dateRange}\n\n` +
+           `*Total Volume:* ${billStats.totalLiters.toFixed(2)} L\n` +
+           `*Total Amount:* ₹${billStats.totalAmount.toFixed(2)}\n` +
+           `*Payment Received:* ₹${billStats.totalPaid.toFixed(2)}\n` +
+           `--------------------------\n` +
+           `*BALANCE DUE: ₹${billStats.totalDue.toFixed(2)}*\n` +
+           `--------------------------\n\n` +
+           `Thank you!`;
+  };
+
+  const handleShareTextOnly = () => {
+    const billText = getBillText();
+    const phone = customer.phoneNumber?.replace(/\D/g, '');
+    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(billText)}`;
+    window.open(waUrl, '_blank');
+  };
+
   const handleShareProfessional = async () => {
     setIsGeneratingPdf(true);
     const pdfBlob = await generatePdfBlob();
     setIsGeneratingPdf(false);
 
-    const businessName = settings.sellerName || profile.displayName || 'Milk Tracker Pro';
-    const billText = `*🍼 MILK BILL SUMMARY*\n` +
-                     `*Seller:* ${businessName}\n` +
-                     `*Customer:* ${customer.name}\n` +
-                     `*Period:* ${billStats.dateRange}\n\n` +
-                     `*Total Volume:* ${billStats.totalLiters.toFixed(2)} L\n` +
-                     `*Total Amount:* ₹${billStats.totalAmount.toFixed(2)}\n` +
-                     `*Payment Received:* ₹${billStats.totalPaid.toFixed(2)}\n` +
-                     `--------------------------\n` +
-                     `*BALANCE DUE: ₹${billStats.totalDue.toFixed(2)}*\n` +
-                     `--------------------------\n\n` +
-                     `Please find the detailed PDF invoice attached. Thank you!`;
-
+    const billText = getBillText() + `\n(PDF Invoice Attached)`;
     const phone = customer.phoneNumber?.replace(/\D/g, '');
     const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(billText)}`;
 
-    // 1. Try modern system sharing (PDF + Text)
     if (pdfBlob && navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], 'bill.pdf', { type: 'application/pdf' })] })) {
       const file = new File([pdfBlob], `Bill_${customer.name.replace(/\s+/g, '_')}.pdf`, { type: 'application/pdf' });
       try {
@@ -168,12 +176,10 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
         });
         return;
       } catch (err: any) {
-        // User cancelled or error, continue to fallback
         if (err.name === 'AbortError') return;
       }
     }
 
-    // 2. Fallback: Download PDF automatically + Open WhatsApp Direct Chat
     if (pdfBlob) {
       const url = URL.createObjectURL(pdfBlob);
       const link = document.createElement('a');
@@ -183,7 +189,6 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       toast({ title: "PDF Ready", description: "PDF downloaded. Now opening WhatsApp chat..." });
     }
     
-    // Open the direct chat API
     window.open(waUrl, '_blank');
   };
 
@@ -196,12 +201,20 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
         <div className="flex flex-wrap gap-2">
           <Button 
             variant="default" 
+            onClick={handleShareTextOnly} 
+            className="gap-2 bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm"
+          >
+            <Send className="h-4 w-4" />
+            Share Text Summary
+          </Button>
+          <Button 
+            variant="default" 
             onClick={handleShareProfessional} 
             disabled={isGeneratingPdf}
-            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg"
+            className="gap-2 bg-emerald-700 hover:bg-emerald-800 text-white shadow-lg"
           >
-            {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}
-            Share PDF to WhatsApp
+            {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            Share PDF
           </Button>
           <Button 
             variant="outline" 
