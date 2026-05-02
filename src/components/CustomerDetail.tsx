@@ -9,7 +9,7 @@ import EntryForm from './EntryForm';
 import PaymentForm from './PaymentForm';
 import AiInsights from './AiInsights';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Printer, Download, Sparkles, Phone, MapPin, CreditCard, QrCode } from 'lucide-react';
+import { ChevronLeft, Printer, Download, Sparkles, Phone, MapPin, CreditCard } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -35,7 +35,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     return { totalLiters, totalAmount, totalPaid, totalDue };
   }, [entries]);
 
-  // Construct UPI Payment URI
+  // Construct UPI Payment URI for automated pre-filling of amount
   const upiUri = useMemo(() => {
     if (!profile.upiId || billStats.totalDue <= 0) return null;
     const payeeName = encodeURIComponent(settings.sellerName || profile.displayName || 'Milk Seller');
@@ -50,19 +50,21 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       ...entryData,
       ownerId: userId
     };
-    addDoc(ref, data).catch(async (err) => {
-      const permissionError = new FirestorePermissionError({
-        path: ref.path,
-        operation: 'create',
-        requestResourceData: data,
+    addDoc(ref, data)
+      .then(() => {
+        toast({
+          title: "Entry Recorded",
+          description: `${entryData.milkQuantity}L delivery for ${entryData.customerName} saved successfully.`
+        });
+      })
+      .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: ref.path,
+          operation: 'create',
+          requestResourceData: data,
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
-      errorEmitter.emit('permission-error', permissionError);
-    });
-
-    toast({
-      title: "Entry Recorded",
-      description: `${entryData.milkQuantity}L delivery for ${entryData.customerName} saved successfully.`
-    });
   };
 
   const handleMarkPaid = async (fromDate: string, toDate: string) => {
