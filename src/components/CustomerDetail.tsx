@@ -10,7 +10,7 @@ import EntryForm from './EntryForm';
 import PaymentForm from './PaymentForm';
 import AiInsights from './AiInsights';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Printer, Download, Sparkles, Phone, MapPin, MessageCircle, Share2, Loader2 } from 'lucide-react';
+import { ChevronLeft, Printer, Download, Sparkles, Phone, MapPin, MessageCircle, Share2, Loader2, FileText } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '@/hooks/use-toast';
 import html2canvas from 'html2canvas';
@@ -119,6 +119,24 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     }
   };
 
+  const handleDownloadPdf = async () => {
+    setIsGeneratingPdf(true);
+    const pdfBlob = await generatePdfBlob();
+    setIsGeneratingPdf(false);
+
+    if (pdfBlob) {
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Bill_${customer.name}_${new Date().toISOString().split('T')[0]}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast({ title: "Download Started", description: "PDF bill saved to your device." });
+    } else {
+      toast({ title: "Error", description: "Could not generate PDF.", variant: "destructive" });
+    }
+  };
+
   const handleShareProfessional = async () => {
     setIsGeneratingPdf(true);
     const pdfBlob = await generatePdfBlob();
@@ -192,6 +210,15 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
           >
             {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}
             Share PDF to WhatsApp
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={handleDownloadPdf} 
+            disabled={isGeneratingPdf}
+            className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+          >
+            {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Download PDF
           </Button>
           <Button variant="outline" onClick={() => window.print()} className="gap-2 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100">
             <Printer className="h-4 w-4" /> Professional Print
