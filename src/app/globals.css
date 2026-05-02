@@ -30,6 +30,8 @@
     --card-bg-color: #ffffff;
     --text-color: #212529;
     --heading-color: #0d6efd;
+    
+    color-scheme: light;
   }
 
   .dark {
@@ -58,6 +60,8 @@
     --card-bg-color: #12141a;
     --text-color: #e0e0e0;
     --heading-color: #90caf9;
+
+    color-scheme: dark;
   }
 
   body {
