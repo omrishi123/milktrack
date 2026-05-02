@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -9,7 +10,7 @@ import EntryForm from './EntryForm';
 import PaymentForm from './PaymentForm';
 import AiInsights from './AiInsights';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Printer, Download, Sparkles, Phone, MapPin, CreditCard } from 'lucide-react';
+import { ChevronLeft, Printer, Download, Sparkles, Phone, MapPin, CreditCard, Share2, MessageCircle } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -35,88 +36,67 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     return { totalLiters, totalAmount, totalPaid, totalDue };
   }, [entries]);
 
-  // Construct UPI Payment URI for automated pre-filling of amount
   const upiUri = useMemo(() => {
     if (!profile.upiId || billStats.totalDue <= 0) return null;
     const payeeName = encodeURIComponent(settings.sellerName || profile.displayName || 'Milk Seller');
     const amount = billStats.totalDue.toFixed(2);
-    // Standard UPI URI format: upi://pay?pa=<address>&pn=<name>&am=<amount>&cu=INR
     return `upi://pay?pa=${profile.upiId}&pn=${payeeName}&am=${amount}&cu=INR&tn=Milk%20Bill%20Payment`;
   }, [profile.upiId, profile.displayName, settings.sellerName, billStats.totalDue]);
 
   const handleAddEntry = (entryData: Omit<MilkEntry, 'id' | 'ownerId'>) => {
     const ref = collection(db, 'users', userId, 'entries');
-    const data = {
-      ...entryData,
-      ownerId: userId
-    };
+    const data = { ...entryData, ownerId: userId };
     addDoc(ref, data)
       .then(() => {
         toast({
           title: "Entry Recorded",
-          description: `${entryData.milkQuantity}L delivery for ${entryData.customerName} saved successfully.`
+          description: `${entryData.milkQuantity}L delivery saved successfully.`
         });
       })
       .catch(async (err) => {
-        const permissionError = new FirestorePermissionError({
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: ref.path,
           operation: 'create',
           requestResourceData: data,
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        }));
       });
   };
 
   const handleMarkPaid = async (fromDate: string, toDate: string) => {
     const entriesToUpdate = entries.filter(e => e.date >= fromDate && e.date <= toDate && !e.paid);
-    
     if (entriesToUpdate.length === 0) {
-      toast({
-        title: "No Entries Found",
-        description: "No unpaid entries were found in the selected date range.",
-        variant: "destructive"
-      });
+      toast({ title: "No Entries Found", description: "No unpaid entries found in range.", variant: "destructive" });
       return;
     }
-
     for (const entry of entriesToUpdate) {
       if (!entry.id) continue;
       const ref = doc(db, 'users', userId, 'entries', entry.id);
       updateDoc(ref, { paid: true }).catch(async (err) => {
-        const permissionError = new FirestorePermissionError({
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: ref.path,
           operation: 'update',
           requestResourceData: { paid: true },
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        }));
       });
     }
-
-    toast({
-      title: "Payments Updated",
-      description: `Marked ${entriesToUpdate.length} entries as paid for ${customer.name}.`
-    });
-    
+    toast({ title: "Payments Updated", description: `Marked ${entriesToUpdate.length} entries as paid.` });
     setActiveTab('history');
   };
 
-  const handleExportCSV = () => {
-    if (entries.length === 0) return;
-    let csv = "Date,Time,Milk(L),Total,Status\n";
-    entries.forEach(e => csv += `${e.date},${e.timeOfDay},${e.milkQuantity},${e.total.toFixed(2)},${e.paid ? 'Paid' : 'Unpaid'}\n`);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `${customer.name}_report.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handlePrint = () => {
-    window.print();
+  const handleShareWhatsApp = () => {
+    if (!customer.phoneNumber) {
+      toast({ title: "No Phone Number", description: "Please add a phone number for this customer first.", variant: "destructive" });
+      return;
+    }
+    const message = `Hello ${customer.name}, your Milk Bill summary from ${settings.sellerName || 'Milk Tracker'}:\n\n` +
+      `Total Milk: ${billStats.totalLiters.toFixed(2)} L\n` +
+      `Total Bill: ₹${billStats.totalAmount.toFixed(2)}\n` +
+      `Amount Paid: ₹${billStats.totalPaid.toFixed(2)}\n` +
+      `*Balance Due: ₹${billStats.totalDue.toFixed(2)}*\n\n` +
+      (profile.upiId && billStats.totalDue > 0 ? `You can pay via UPI to: ${profile.upiId}` : "Thank you!");
+    
+    const whatsappUrl = `https://wa.me/${customer.phoneNumber.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   return (
@@ -125,11 +105,23 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
         <Button variant="outline" onClick={onBack} className="gap-2">
           <ChevronLeft className="h-4 w-4" /> Dashboard
         </Button>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={handlePrint} className="gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={handleShareWhatsApp} className="gap-2 bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100">
+            <MessageCircle className="h-4 w-4" /> WhatsApp Bill
+          </Button>
+          <Button variant="outline" onClick={() => window.print()} className="gap-2">
             <Printer className="h-4 w-4" /> Print Bill
           </Button>
-          <Button variant="outline" onClick={handleExportCSV} className="gap-2">
+          <Button variant="outline" onClick={() => {
+            let csv = "Date,Time,Milk(L),Total,Status\n";
+            entries.forEach(e => csv += `${e.date},${e.timeOfDay},${e.milkQuantity},${e.total.toFixed(2)},${e.paid ? 'Paid' : 'Unpaid'}\n`);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `${customer.name}_report.csv`;
+            link.click();
+          }} className="gap-2">
             <Download className="h-4 w-4" /> CSV
           </Button>
         </div>
@@ -144,78 +136,37 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       </div>
 
       <nav className="flex flex-wrap gap-2 p-1 bg-muted rounded-lg no-print">
-        <button 
-          className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all ${activeTab === 'entry' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} 
-          onClick={() => setActiveTab('entry')}
-        >
-          Add Entry
-        </button>
-        <button 
-          className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all ${activeTab === 'history' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} 
-          onClick={() => setActiveTab('history')}
-        >
-          History
-        </button>
-        <button 
-          className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all ${activeTab === 'payment' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} 
-          onClick={() => setActiveTab('payment')}
-        >
-          Payments
-        </button>
-        <button 
-          className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all flex items-center justify-center gap-1 ${activeTab === 'ai' ? 'bg-background shadow-sm text-amber-600' : 'text-muted-foreground'}`} 
-          onClick={() => setActiveTab('ai')}
-        >
-          <Sparkles className="h-4 w-4" /> AI Insights
-        </button>
+        <button className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all ${activeTab === 'entry' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('entry')}>Add Entry</button>
+        <button className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all ${activeTab === 'history' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('history')}>History</button>
+        <button className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all ${activeTab === 'payment' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('payment')}>Payments</button>
+        <button className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all flex items-center justify-center gap-1 ${activeTab === 'ai' ? 'bg-background shadow-sm text-amber-600' : 'text-muted-foreground'}`} onClick={() => setActiveTab('ai')}><Sparkles className="h-4 w-4" /> AI Insights</button>
       </nav>
 
       <div className={`${activeTab === 'entry' ? '' : 'hidden'} no-print`}>
-        <EntryForm 
-          customerName={customer.name} 
-          defaultPrice={settings.defaultPrice} 
-          onAdd={handleAddEntry} 
-        />
+        <EntryForm customerName={customer.name} defaultPrice={settings.defaultPrice} onAdd={handleAddEntry} />
       </div>
-
       <div className={`${activeTab === 'payment' ? '' : 'hidden'} no-print`}>
-        <PaymentForm 
-          customerName={customer.name} 
-          onMarkPaid={handleMarkPaid} 
-        />
+        <PaymentForm customerName={customer.name} onMarkPaid={handleMarkPaid} />
       </div>
-
       <div className={`${activeTab === 'history' ? '' : 'hidden'} no-print`}>
-        <HistoryTable 
-          entries={entries} 
-          db={db} 
-          userId={userId} 
-          customerName={customer.name} 
-        />
+        <HistoryTable entries={entries} db={db} userId={userId} customerName={customer.name} />
       </div>
-
       <div className={`${activeTab === 'ai' ? '' : 'hidden'} no-print`}>
-        <AiInsights 
-          customerName={customer.name} 
-          entries={entries} 
-        />
+        <AiInsights customerName={customer.name} entries={entries} />
       </div>
 
-      {/* PROFESSIONAL PRINT BILL AREA */}
       <div id="print-area" className="hidden print:block font-serif text-black bg-white p-8">
         <div className="flex justify-between items-start border-b-2 border-black pb-4 mb-6">
           <div>
             <h1 className="text-2xl font-bold uppercase tracking-wider">{settings.sellerName || profile.displayName || 'MILK TRACKER PRO'}</h1>
             {profile.address && <p className="text-sm italic">{profile.address}</p>}
             {profile.mobileNumber && <p className="text-sm">Mobile: {profile.mobileNumber}</p>}
-            {profile.upiId && <p className="text-sm font-semibold flex items-center gap-1"><CreditCard className="h-3 w-3" /> UPI ID: {profile.upiId}</p>}
           </div>
           <div className="text-right">
             <h2 className="text-xl font-bold">INVOICE</h2>
             <p className="text-sm">Date: {new Date().toLocaleDateString()}</p>
           </div>
         </div>
-
         <div className="grid grid-cols-2 gap-8 mb-8">
           <div>
             <h3 className="text-xs font-bold uppercase text-gray-500 mb-2">Bill To:</h3>
@@ -224,7 +175,6 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
             {customer.phoneNumber && <p className="text-sm">Phone: {customer.phoneNumber}</p>}
           </div>
         </div>
-
         <table className="w-full border-collapse mb-8 text-sm">
           <thead>
             <tr className="border-y-2 border-black bg-gray-50">
@@ -249,7 +199,6 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
             ))}
           </tbody>
         </table>
-
         <div className="flex justify-between items-start gap-8">
           <div className="flex flex-col items-center">
             {upiUri ? (
@@ -264,38 +213,12 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
               </div>
             )}
           </div>
-          
           <div className="w-64 space-y-2 border-t-2 border-black pt-4">
-            <div className="flex justify-between text-sm">
-              <span>Total Milk:</span>
-              <span className="font-bold">{billStats.totalLiters.toFixed(2)} Liters</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span>Gross Amount:</span>
-              <span className="font-bold">₹{billStats.totalAmount.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm text-green-700">
-              <span>Amount Paid:</span>
-              <span className="font-bold">₹{billStats.totalPaid.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-xl font-black border-t-2 border-double border-black pt-2 mt-2">
-              <span>Balance Due:</span>
-              <span>₹{billStats.totalDue.toFixed(2)}</span>
-            </div>
+            <div className="flex justify-between text-sm"><span>Total Milk:</span><span className="font-bold">{billStats.totalLiters.toFixed(2)} L</span></div>
+            <div className="flex justify-between text-sm"><span>Gross Amount:</span><span className="font-bold">₹{billStats.totalAmount.toFixed(2)}</span></div>
+            <div className="flex justify-between text-sm text-green-700"><span>Paid:</span><span className="font-bold">₹{billStats.totalPaid.toFixed(2)}</span></div>
+            <div className="flex justify-between text-xl font-black border-t-2 border-double border-black pt-2 mt-2"><span>Balance Due:</span><span>₹{billStats.totalDue.toFixed(2)}</span></div>
           </div>
-        </div>
-
-        <div className="mt-20 flex justify-between">
-          <div className="text-center w-40 border-t border-black pt-2">
-            <p className="text-xs italic">Customer Signature</p>
-          </div>
-          <div className="text-center w-40 border-t border-black pt-2">
-            <p className="text-xs italic">Authorized Seal/Sign</p>
-          </div>
-        </div>
-
-        <div className="mt-12 text-center text-[10px] text-gray-500 italic">
-          <p>Thank you for your business! This is a computer-generated invoice.</p>
         </div>
       </div>
     </div>
