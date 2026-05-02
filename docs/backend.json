@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "Customer": {
@@ -38,6 +37,19 @@
         "ownerId": { "type": "string" }
       },
       "required": ["ownerId"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Extended profile information for the user.",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "mobileNumber": { "type": "string" },
+        "upiId": { "type": "string" },
+        "address": { "type": "string" },
+        "photoBase64": { "type": "string" }
+      }
     }
   },
   "auth": {
@@ -55,6 +67,10 @@
     "/users/{userId}/settings/config": {
       "schema": "Settings",
       "description": "User specific settings."
+    },
+    "/users/{userId}/profile/data": {
+      "schema": "UserProfile",
+      "description": "Detailed user profile data."
     }
   }
 }

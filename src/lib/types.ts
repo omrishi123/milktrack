@@ -1,4 +1,3 @@
-
 export interface Customer {
   id?: string;
   name: string;
@@ -22,4 +21,13 @@ export interface AppSettings {
   defaultPrice: number;
   darkMode: boolean;
   ownerId: string;
+}
+
+export interface UserProfile {
+  displayName?: string;
+  email?: string;
+  mobileNumber?: string;
+  upiId?: string;
+  address?: string;
+  photoBase64?: string;
 }
