@@ -1,80 +1,76 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
+    --background: 216 33% 97%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 211 100% 52%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222 47% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 32% 91.4%;
+    --input: 214.3 32% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 12px;
+
+    /* Custom variables for the old design match */
     --bg-color: #f4f7fc;
     --card-bg-color: #ffffff;
     --text-color: #212529;
     --heading-color: #0d6efd;
-    --subheading-color: #198754;
-    --border-color: #dee2e6;
-    --input-border-color: #ced4da;
-    --input-focus-border-color: #86b7fe;
-    --input-focus-shadow-color: rgba(13, 110, 253, 0.25);
-    --btn-secondary-bg: #6c757d;
-    --btn-secondary-hover-bg: #5c636a;
-    --summary-bg: #e9ecef;
-    --summary-text-color: #0d6efd;
-    --table-header-bg: #f8f9fa;
-
-    --background: 216 33% 97%;
-    --foreground: 222 47% 11%;
-    --primary: 211 100% 52%;
-    --primary-foreground: 210 40% 98%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --radius: 12px;
   }
 
   .dark {
-    --bg-color: #121212;
-    --card-bg-color: #1e1e1e;
-    --text-color: #e0e0e0;
-    --heading-color: #90caf9;
-    --subheading-color: #a5d6a7;
-    --border-color: #424242;
-    --input-border-color: #616161;
-    --input-focus-border-color: #90caf9;
-    --input-focus-shadow-color: rgba(144, 202, 249, 0.25);
-    --btn-secondary-bg: #424242;
-    --btn-secondary-hover-bg: #616161;
-    --summary-bg: #333;
-    --summary-text-color: #90caf9;
-    --table-header-bg: #212121;
-
     --background: 222 47% 4%;
     --foreground: 210 40% 98%;
+    --card: 222 47% 6%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 4%;
+    --popover-foreground: 210 40% 98%;
     --primary: 211 100% 65%;
     --primary-foreground: 222 47% 11%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+
+    /* Custom variables for the old design match */
+    --bg-color: #0a0b0d;
+    --card-bg-color: #12141a;
+    --text-color: #e0e0e0;
+    --heading-color: #90caf9;
   }
 
   body {
-    background-color: var(--bg-color);
-    color: var(--text-color);
+    @apply bg-background text-foreground;
     transition: background-color 0.3s, color 0.3s;
   }
 }
 
 @layer components {
-  .btn-primary { @apply bg-[#0d6efd] text-white; }
+  .btn-primary { @apply bg-primary text-primary-foreground; }
   .btn-success { @apply bg-[#198754] text-white; }
-  .btn-secondary { @apply bg-[var(--btn-secondary-bg)] text-white; }
-  .btn-danger { @apply bg-[#dc3545] text-white; }
+  .btn-danger { @apply bg-destructive text-destructive-foreground; }
   .btn-warning { @apply bg-[#ffc107] text-black; }
-
-  .summary-card {
-    @apply bg-[var(--card-bg-color)] p-5 rounded-[12px] text-center border border-[var(--border-color)];
-  }
-
-  .detail-nav-btn {
-    @apply flex-1 p-2 bg-transparent text-[var(--text-color)] font-semibold rounded-[8px] transition-all;
-  }
-  .detail-nav-btn.active {
-    @apply bg-[var(--card-bg-color)] text-[var(--heading-color)] shadow-sm;
-  }
 }
 
 @media print {

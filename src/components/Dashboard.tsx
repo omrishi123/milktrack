@@ -24,14 +24,13 @@ export default function Dashboard({ customers, milkEntries, onAddCustomer, onDel
   const [address, setAddress] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Smart default logic: If no customers, show "Add" tab first. Otherwise show "List".
   useEffect(() => {
     if (customers.length === 0) {
       setActiveTab('add');
     } else {
       setActiveTab('list');
     }
-  }, [customers.length === 0]); // Only run when transitioning from 0 to >0 or vice versa
+  }, [customers.length]);
 
   const totalDue = milkEntries.filter(e => !e.paid).reduce((sum, e) => sum + e.total, 0);
   const now = new Date();
@@ -49,7 +48,7 @@ export default function Dashboard({ customers, milkEntries, onAddCustomer, onDel
       setName('');
       setPhoneNumber('');
       setAddress('');
-      setActiveTab('list'); // Switch to list after adding
+      setActiveTab('list');
     }
   };
 
@@ -62,17 +61,17 @@ export default function Dashboard({ customers, milkEntries, onAddCustomer, onDel
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-primary/5 border border-primary/10 p-5 rounded-2xl text-center shadow-sm">
+        <div className="bg-primary/10 border border-primary/20 p-5 rounded-2xl text-center shadow-sm">
           <h3 className="text-xs font-bold uppercase text-muted-foreground mb-2">Total Customers</h3>
           <p className="text-3xl font-black text-primary">{customers.length}</p>
         </div>
-        <div className="bg-emerald-500/5 border border-emerald-500/10 p-5 rounded-2xl text-center shadow-sm">
+        <div className="bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-2xl text-center shadow-sm">
           <h3 className="text-xs font-bold uppercase text-muted-foreground mb-2">Total Due (All)</h3>
-          <p className="text-3xl font-black text-emerald-600">₹{totalDue.toFixed(2)}</p>
+          <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400">₹{totalDue.toFixed(2)}</p>
         </div>
-        <div className="bg-blue-500/5 border border-blue-500/10 p-5 rounded-2xl text-center shadow-sm">
+        <div className="bg-blue-500/10 border border-blue-500/20 p-5 rounded-2xl text-center shadow-sm">
           <h3 className="text-xs font-bold uppercase text-muted-foreground mb-2">Milk This Month</h3>
-          <p className="text-3xl font-black text-blue-600">{monthlyMilk.toFixed(2)} L</p>
+          <p className="text-3xl font-black text-blue-600 dark:text-blue-400">{monthlyMilk.toFixed(2)} L</p>
         </div>
       </div>
 
@@ -102,7 +101,7 @@ export default function Dashboard({ customers, milkEntries, onAddCustomer, onDel
 
       {/* Tab Content: Customer List */}
       {activeTab === 'list' && (
-        <Card className="border-none shadow-md overflow-hidden">
+        <Card className="border shadow-md overflow-hidden bg-card">
           <CardHeader className="bg-muted/30 pb-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <CardTitle className="flex items-center gap-2">
@@ -113,7 +112,7 @@ export default function Dashboard({ customers, milkEntries, onAddCustomer, onDel
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
                   placeholder="Search name or phone..." 
-                  className="pl-9 bg-background"
+                  className="pl-9"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -130,11 +129,6 @@ export default function Dashboard({ customers, milkEntries, onAddCustomer, onDel
                   <p className="text-muted-foreground font-medium">
                     {searchTerm ? "No customers match your search." : "No customers found. Add your first customer!"}
                   </p>
-                  {!searchTerm && (
-                    <Button variant="outline" onClick={() => setActiveTab('add')}>
-                      Go to Add New
-                    </Button>
-                  )}
                 </div>
               ) : (
                 filteredCustomers.map(c => (
@@ -149,7 +143,7 @@ export default function Dashboard({ customers, milkEntries, onAddCustomer, onDel
                         {c.address && <span className="truncate max-w-[200px]">📍 {c.address}</span>}
                       </div>
                     </button>
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-2 md:opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button
                         variant="ghost"
                         size="icon"
@@ -162,7 +156,7 @@ export default function Dashboard({ customers, milkEntries, onAddCustomer, onDel
                         <Trash2 className="h-5 w-5" />
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => onSelectCustomer(c)}>
-                        View Details
+                        View
                       </Button>
                     </div>
                   </div>
@@ -175,7 +169,7 @@ export default function Dashboard({ customers, milkEntries, onAddCustomer, onDel
 
       {/* Tab Content: Add Customer */}
       {activeTab === 'add' && (
-        <Card className="border-none shadow-md">
+        <Card className="border shadow-md bg-card">
           <CardHeader className="bg-muted/30">
             <CardTitle className="flex items-center gap-2">
               <UserPlus className="h-5 w-5 text-primary" />
