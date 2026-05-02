@@ -168,7 +168,6 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
 
     const billText = getBillText() + `\n(PDF Invoice Attached)`;
     const phone = customer.phoneNumber?.replace(/\D/g, '');
-    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(billText)}`;
 
     if (pdfBlob && navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], 'bill.pdf', { type: 'application/pdf' })] })) {
       const file = new File([pdfBlob], `Bill_${customer.name.replace(/\s+/g, '_')}.pdf`, { type: 'application/pdf' });
@@ -193,6 +192,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       toast({ title: "PDF Ready", description: "PDF downloaded. Now opening WhatsApp chat..." });
     }
     
+    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(billText)}`;
     window.open(waUrl, '_blank');
   };
 
@@ -278,7 +278,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
             <h2 className="text-4xl font-black text-gray-300">INVOICE</h2>
             <p className="text-sm font-bold mt-2">Bill Date: {new Date().toLocaleDateString()}</p>
             <div className="mt-2 flex justify-end">
-              <span className="text-xs bg-black text-white px-2 py-1 uppercase font-bold leading-none inline-block">
+              <span className="text-xs text-black px-0 py-1 uppercase font-bold leading-none inline-block border-b-2 border-black">
                 Period: {billStats.dateRange}
               </span>
             </div>
@@ -313,7 +313,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
                 <td className="py-3 px-2 text-right font-bold">₹{e.total.toFixed(2)}</td>
                 <td className="py-3 px-2 text-center align-middle">
                   <div className="flex justify-center items-center h-full">
-                    <span className={`text-[10px] px-1.5 py-0.5 border border-black font-black uppercase leading-none inline-block ${e.paid ? 'bg-black text-white' : 'bg-white text-black'}`}>
+                    <span className={`text-[10px] px-1.5 py-0.5 font-black uppercase leading-none inline-block ${e.paid ? 'text-green-700' : 'text-red-700'}`}>
                       {e.paid ? 'PAID' : 'DUE'}
                     </span>
                   </div>
