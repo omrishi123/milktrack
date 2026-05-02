@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, doc, addDoc, setDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { collection, doc, addDoc, setDoc, deleteDoc, updateDoc, query, orderBy } from 'firebase/firestore';
 import AuthPage from '@/components/AuthPage';
 import Dashboard from '@/components/Dashboard';
 import CustomerDetail from '@/components/CustomerDetail';
@@ -79,6 +79,19 @@ export default function MilkTrackerApp() {
       errorEmitter.emit('permission-error', permissionError);
     });
     toast({ title: "Customer Added", description: `${customerData.name} saved successfully.` });
+  };
+
+  const handleUpdateCustomer = (id: string, customerData: Partial<Customer>) => {
+    const ref = doc(db!, 'users', user.uid, 'customers', id);
+    updateDoc(ref, customerData).catch(async (err) => {
+      const permissionError = new FirestorePermissionError({
+        path: ref.path,
+        operation: 'update',
+        requestResourceData: customerData,
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    });
+    toast({ title: "Customer Updated", description: "Details updated successfully." });
   };
 
   const handleDeleteCustomer = async (id: string, name: string) => {
@@ -162,6 +175,7 @@ export default function MilkTrackerApp() {
           customers={customers}
           milkEntries={milkEntries}
           onAddCustomer={handleAddCustomer}
+          onUpdateCustomer={handleUpdateCustomer}
           onDeleteCustomer={handleDeleteCustomer}
           onSelectCustomer={(c) => { setSelectedCustomer(c); setCurrentView('customer-detail'); }}
         />

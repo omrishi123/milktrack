@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -6,24 +5,30 @@ import { Customer, MilkEntry } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Trash2, UserPlus, Users, Search, TrendingUp, DollarSign, Droplets, MapPin, Phone } from 'lucide-react';
+import { Trash2, UserPlus, Users, Search, TrendingUp, DollarSign, Droplets, MapPin, Phone, Edit2, Save, X } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 interface DashboardProps {
   customers: Customer[];
   milkEntries: MilkEntry[];
   onAddCustomer: (data: Omit<Customer, 'ownerId'>) => void;
+  onUpdateCustomer: (id: string, data: Partial<Customer>) => void;
   onDeleteCustomer: (id: string, name: string) => void;
   onSelectCustomer: (customer: Customer) => void;
 }
 
-export default function Dashboard({ customers, milkEntries, onAddCustomer, onDeleteCustomer, onSelectCustomer }: DashboardProps) {
+export default function Dashboard({ customers, milkEntries, onAddCustomer, onUpdateCustomer, onDeleteCustomer, onSelectCustomer }: DashboardProps) {
   const [activeTab, setActiveTab] = useState<'list' | 'add'>('list');
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [address, setAddress] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Edit State
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   useEffect(() => {
     if (customers.length === 0) {
@@ -52,6 +57,23 @@ export default function Dashboard({ customers, milkEntries, onAddCustomer, onDel
       setPhoneNumber('');
       setAddress('');
       setActiveTab('list');
+    }
+  };
+
+  const handleEditClick = (c: Customer) => {
+    setEditingCustomer({ ...c });
+    setIsEditOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (editingCustomer && editingCustomer.id) {
+      onUpdateCustomer(editingCustomer.id, {
+        name: editingCustomer.name,
+        phoneNumber: editingCustomer.phoneNumber,
+        address: editingCustomer.address
+      });
+      setIsEditOpen(false);
+      setEditingCustomer(null);
     }
   };
 
@@ -129,6 +151,9 @@ export default function Dashboard({ customers, milkEntries, onAddCustomer, onDel
                       </div>
                     </button>
                     <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="icon" className="text-primary hover:bg-primary/10 no-print" onClick={(e) => { e.stopPropagation(); handleEditClick(c); }}>
+                        <Edit2 className="h-5 w-5" />
+                      </Button>
                       <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 no-print" onClick={(e) => { e.stopPropagation(); onDeleteCustomer(c.id!, c.name); }}>
                         <Trash2 className="h-5 w-5" />
                       </Button>
@@ -173,6 +198,52 @@ export default function Dashboard({ customers, milkEntries, onAddCustomer, onDel
           </CardContent>
         </Card>
       )}
+
+      {/* Edit Customer Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Customer Details</DialogTitle>
+            <DialogDescription>Update the contact information for this client.</DialogDescription>
+          </DialogHeader>
+          {editingCustomer && (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-name">Full Name</Label>
+                <Input
+                  id="edit-name"
+                  value={editingCustomer.name}
+                  onChange={e => setEditingCustomer({...editingCustomer, name: e.target.value})}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-phone">Phone Number</Label>
+                <Input
+                  id="edit-phone"
+                  value={editingCustomer.phoneNumber || ''}
+                  onChange={e => setEditingCustomer({...editingCustomer, phoneNumber: e.target.value})}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-address">Address</Label>
+                <Input
+                  id="edit-address"
+                  value={editingCustomer.address || ''}
+                  onChange={e => setEditingCustomer({...editingCustomer, address: e.target.value})}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setIsEditOpen(false)}>
+              <X className="mr-2 h-4 w-4" /> Cancel
+            </Button>
+            <Button onClick={handleSaveEdit} className="bg-primary">
+              <Save className="mr-2 h-4 w-4" /> Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
