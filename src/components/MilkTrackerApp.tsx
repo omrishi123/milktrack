@@ -6,12 +6,12 @@ import { collection, doc, addDoc, setDoc, deleteDoc, query, orderBy } from 'fire
 import AuthPage from '@/components/AuthPage';
 import Dashboard from '@/components/Dashboard';
 import CustomerDetail from '@/components/CustomerDetail';
-import SettingsModal from '@/components/SettingsModal';
-import ProfileModal from '@/components/ProfileModal';
+import SettingsPage from '@/components/SettingsPage';
+import ProfilePage from '@/components/ProfilePage';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
-import { Settings as SettingsIcon, User as UserIcon, Loader2 } from 'lucide-react';
+import { Settings as SettingsIcon, User as UserIcon, Loader2, Home } from 'lucide-react';
 import { Customer, MilkEntry, AppSettings, UserProfile } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -20,10 +20,8 @@ export default function MilkTrackerApp() {
   const db = useFirestore();
   const { toast } = useToast();
 
-  const [currentView, setCurrentView] = useState<'dashboard' | 'customer-detail'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'customer-detail' | 'profile' | 'settings'>('dashboard');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const customersQuery = useMemo(() => {
     if (!db || !user) return null;
@@ -125,14 +123,26 @@ export default function MilkTrackerApp() {
   return (
     <div className="container mx-auto px-4 pb-12">
       <header className="flex justify-between items-center mb-8 no-print pt-6 border-b pb-4">
-        <h1 className="text-2xl font-bold text-[var(--heading-color)] m-0">Milk Tracker</h1>
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentView('dashboard')}>
+          <h1 className="text-2xl font-bold text-[var(--heading-color)] m-0">Milk Tracker</h1>
+        </div>
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => setIsSettingsOpen(true)} className="rounded-full">
+          {currentView !== 'dashboard' && (
+            <Button variant="ghost" size="icon" onClick={() => setCurrentView('dashboard')} className="rounded-full">
+              <Home className="h-5 w-5" />
+            </Button>
+          )}
+          <Button 
+            variant={currentView === 'settings' ? 'secondary' : 'ghost'} 
+            size="icon" 
+            onClick={() => setCurrentView('settings')} 
+            className="rounded-full"
+          >
             <SettingsIcon className="h-5 w-5" />
           </Button>
           <button 
-            onClick={() => setIsProfileOpen(true)} 
-            className="flex items-center gap-2 hover:bg-muted p-1 pr-3 rounded-full transition-colors border shadow-sm"
+            onClick={() => setCurrentView('profile')} 
+            className={`flex items-center gap-2 p-1 pr-3 rounded-full transition-colors border shadow-sm ${currentView === 'profile' ? 'bg-secondary' : 'hover:bg-muted'}`}
           >
             <Avatar className="h-8 w-8">
               <AvatarImage src={profile.photoBase64} />
@@ -147,7 +157,7 @@ export default function MilkTrackerApp() {
         </div>
       </header>
 
-      {currentView === 'dashboard' ? (
+      {currentView === 'dashboard' && (
         <Dashboard
           customers={customers}
           milkEntries={milkEntries}
@@ -155,7 +165,9 @@ export default function MilkTrackerApp() {
           onDeleteCustomer={handleDeleteCustomer}
           onSelectCustomer={(c) => { setSelectedCustomer(c); setCurrentView('customer-detail'); }}
         />
-      ) : selectedCustomer && (
+      )}
+
+      {currentView === 'customer-detail' && selectedCustomer && (
         <CustomerDetail
           customer={selectedCustomer}
           entries={milkEntries.filter(e => e.customerName === selectedCustomer.name)}
@@ -167,27 +179,27 @@ export default function MilkTrackerApp() {
         />
       )}
 
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        settings={settings}
-        onSave={handleSaveSettings}
-        customers={customers}
-        milkEntries={milkEntries}
-        db={db!}
-        userId={user.uid}
-      />
+      {currentView === 'profile' && (
+        <ProfilePage
+          profile={profile}
+          onSave={handleSaveProfile}
+          onSignOut={() => signOut()}
+          onBack={() => setCurrentView('dashboard')}
+        />
+      )}
 
-      <ProfileModal
-        isOpen={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
-        profile={profile}
-        onSave={handleSaveProfile}
-        onSignOut={() => {
-          setIsProfileOpen(false);
-          signOut();
-        }}
-      />
+      {currentView === 'settings' && (
+        <SettingsPage
+          settings={settings}
+          onSave={handleSaveSettings}
+          customers={customers}
+          milkEntries={milkEntries}
+          db={db!}
+          userId={user.uid}
+          onBack={() => setCurrentView('dashboard')}
+        />
+      )}
+
       <Toaster />
     </div>
   );
