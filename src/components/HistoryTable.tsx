@@ -3,11 +3,14 @@
 import React, { useState, useMemo } from 'react';
 import { doc, deleteDoc, updateDoc, Firestore } from 'firebase/firestore';
 import { MilkEntry } from '@/lib/types';
-import { Trash2, Search, Edit2 } from 'lucide-react';
+import { Trash2, Search, Edit2, Loader2, Save } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import MilkChart from './MilkChart';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { errorEmitter, FirestorePermissionError } from '@/firebase';
 
 interface HistoryTableProps {
   entries: MilkEntry[];
@@ -20,6 +23,11 @@ export default function HistoryTable({ entries, db, userId }: HistoryTableProps)
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [monthFilter, setMonthFilter] = useState('all');
+  
+  // Edit state
+  const [editingEntry, setEditingEntry] = useState<MilkEntry | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const months = useMemo(() => {
     const mSet = new Set(entries.map(e => e.date.substring(0, 7)));
@@ -40,8 +48,48 @@ export default function HistoryTable({ entries, db, userId }: HistoryTableProps)
 
   const handleDelete = async (id: string) => {
     if (confirm("Delete this entry permanently from the cloud?")) {
-      deleteDoc(doc(db, 'users', userId, 'entries', id));
+      const entryRef = doc(db, 'users', userId, 'entries', id);
+      deleteDoc(entryRef).catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: entryRef.path,
+          operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      });
     }
+  };
+
+  const handleEditClick = (entry: MilkEntry) => {
+    setEditingEntry({ ...entry });
+    setIsEditOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingEntry || !editingEntry.id) return;
+    
+    setIsSaving(true);
+    const entryRef = doc(db, 'users', userId, 'entries', editingEntry.id);
+    const total = editingEntry.milkQuantity * editingEntry.price;
+    const updatedData = {
+      ...editingEntry,
+      total
+    };
+
+    updateDoc(entryRef, updatedData)
+      .then(() => {
+        setIsEditOpen(false);
+      })
+      .catch(async (err) => {
+        const permissionError = new FirestorePermissionError({
+          path: entryRef.path,
+          operation: 'update',
+          requestResourceData: updatedData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setIsSaving(false);
+      });
   };
 
   return (
@@ -122,7 +170,15 @@ export default function HistoryTable({ entries, db, userId }: HistoryTableProps)
                         {e.paid ? 'Paid' : 'Unpaid'}
                       </span>
                     </td>
-                    <td className="p-4 text-right no-print">
+                    <td className="p-4 text-right no-print space-x-1">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="text-primary hover:bg-primary/10"
+                        onClick={() => handleEditClick(e)}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
                       <Button 
                         variant="ghost" 
                         size="icon" 
@@ -151,6 +207,74 @@ export default function HistoryTable({ entries, db, userId }: HistoryTableProps)
           <MilkChart entries={entries} />
         </div>
       </div>
+
+      {/* Edit Entry Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Milk Entry</DialogTitle>
+            <DialogDescription>Modify the delivery details below. Totals will update automatically.</DialogDescription>
+          </DialogHeader>
+          {editingEntry && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-date" className="text-right">Date</Label>
+                <Input
+                  id="edit-date"
+                  type="date"
+                  className="col-span-3"
+                  value={editingEntry.date}
+                  onChange={e => setEditingEntry({...editingEntry, date: e.target.value})}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-time" className="text-right">Session</Label>
+                <Select 
+                  value={editingEntry.timeOfDay} 
+                  onValueChange={(val: any) => setEditingEntry({...editingEntry, timeOfDay: val})}
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Morning">Morning</SelectItem>
+                    <SelectItem value="Evening">Evening</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-qty" className="text-right">Liters</Label>
+                <Input
+                  id="edit-qty"
+                  type="number"
+                  step="any"
+                  className="col-span-3"
+                  value={editingEntry.milkQuantity}
+                  onChange={e => setEditingEntry({...editingEntry, milkQuantity: parseFloat(e.target.value) || 0})}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-price" className="text-right">Price/L</Label>
+                <Input
+                  id="edit-price"
+                  type="number"
+                  step="any"
+                  className="col-span-3"
+                  value={editingEntry.price}
+                  onChange={e => setEditingEntry({...editingEntry, price: parseFloat(e.target.value) || 0})}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveEdit} disabled={isSaving}>
+              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

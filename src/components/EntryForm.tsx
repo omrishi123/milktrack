@@ -25,6 +25,8 @@ export default function EntryForm({ customerName, defaultPrice, onAdd }: EntryFo
     const qty = parseFloat(quantity);
     const prc = parseFloat(price);
     
+    if (isNaN(qty) || qty <= 0) return;
+
     onAdd({
       customerName,
       date,
@@ -35,7 +37,7 @@ export default function EntryForm({ customerName, defaultPrice, onAdd }: EntryFo
       paid: false,
     });
     
-    // Reset defaults but keep price
+    // Reset defaults but keep price and date for convenience
     setQuantity('1');
   };
 
@@ -73,8 +75,9 @@ export default function EntryForm({ customerName, defaultPrice, onAdd }: EntryFo
             <Input
               id="quantity"
               type="number"
-              step="0.1"
-              min="0.1"
+              step="any"
+              min="0.01"
+              placeholder="e.g. 2.25"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               required
@@ -85,6 +88,7 @@ export default function EntryForm({ customerName, defaultPrice, onAdd }: EntryFo
             <Input
               id="price"
               type="number"
+              step="any"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               required
