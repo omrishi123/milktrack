@@ -1,25 +1,44 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { AppSettings } from '@/lib/types';
+import React, { useState, useEffect, useRef } from 'react';
+import { AppSettings, Customer, MilkEntry } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Download, Upload, Cloud } from 'lucide-react';
+import { Download, Upload, Cloud, Loader2, CheckCircle2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { collection, addDoc, Firestore } from 'firebase/firestore';
+import { errorEmitter, FirestorePermissionError } from '@/firebase';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
   settings: AppSettings;
   onSave: (s: AppSettings) => void;
+  customers: Customer[];
+  milkEntries: MilkEntry[];
+  db: Firestore;
+  userId: string;
 }
 
-export default function SettingsModal({ isOpen, onClose, settings, onSave }: SettingsModalProps) {
+export default function SettingsModal({ 
+  isOpen, 
+  onClose, 
+  settings, 
+  onSave, 
+  customers, 
+  milkEntries, 
+  db, 
+  userId 
+}: SettingsModalProps) {
   const [sellerName, setSellerName] = useState(settings.sellerName);
   const [defaultPrice, setDefaultPrice] = useState(settings.defaultPrice.toString());
   const [darkMode, setDarkMode] = useState(settings.darkMode);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     setSellerName(settings.sellerName);
@@ -35,6 +54,100 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
       darkMode
     });
     onClose();
+  };
+
+  const handleExportData = () => {
+    const exportData = {
+      version: "1.0",
+      exportDate: new Date().toISOString(),
+      customers: customers.map(({ id, ...rest }) => rest), // Remove IDs to allow fresh insertion
+      milkEntries: milkEntries.map(({ id, ...rest }) => rest),
+      settings: settings
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `milk_tracker_backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Data Exported",
+      description: "Your backup file has been generated successfully.",
+    });
+  };
+
+  const handleImportData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const content = e.target?.result as string;
+        const data = JSON.parse(content);
+
+        if (!data.customers || !data.milkEntries) {
+          throw new Error("Invalid backup file format.");
+        }
+
+        setIsImporting(true);
+        let importedCustomersCount = 0;
+        let importedEntriesCount = 0;
+
+        // 1. Merge Customers (avoid duplicates by name)
+        const customerRef = collection(db, 'users', userId, 'customers');
+        for (const importedCust of data.customers) {
+          const exists = customers.find(c => c.name.toLowerCase() === importedCust.name.toLowerCase());
+          if (!exists) {
+            const newCust = { ...importedCust, ownerId: userId };
+            await addDoc(customerRef, newCust).catch(err => {
+              errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: customerRef.path,
+                operation: 'create',
+                requestResourceData: newCust
+              }));
+            });
+            importedCustomersCount++;
+          }
+        }
+
+        // 2. Merge Milk Entries
+        const entriesRef = collection(db, 'users', userId, 'entries');
+        for (const importedEntry of data.milkEntries) {
+          // Check if similar entry exists (optional, usually entries are additive)
+          const newEntry = { ...importedEntry, ownerId: userId };
+          await addDoc(entriesRef, newEntry).catch(err => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+              path: entriesRef.path,
+              operation: 'create',
+              requestResourceData: newEntry
+            }));
+          });
+          importedEntriesCount++;
+        }
+
+        toast({
+          title: "Import Successful",
+          description: `Added ${importedCustomersCount} new customers and ${importedEntriesCount} milk entries.`,
+        });
+
+      } catch (err: any) {
+        toast({
+          title: "Import Failed",
+          description: err.message || "Could not parse the backup file.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsImporting(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -70,12 +183,39 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
             <Switch checked={darkMode} onCheckedChange={setDarkMode} />
           </div>
 
-          <div className="pt-4 border-t space-y-3">
+          <div className="pt-4 border-t space-y-4">
             <h4 className="text-sm font-bold flex items-center gap-2">
-              <Cloud className="h-4 w-4" /> Cloud Status
+              <Cloud className="h-4 w-4 text-primary" /> Data Migration
             </h4>
-            <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
-              All data is automatically synced to your secure cloud database. No manual backup is required.
+            <div className="grid grid-cols-2 gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2"
+                onClick={handleExportData}
+              >
+                <Download className="h-4 w-4" /> Export JSON
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isImporting}
+              >
+                {isImporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                Import JSON
+              </Button>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept=".json" 
+                onChange={handleImportData}
+              />
+            </div>
+            <p className="text-[10px] text-muted-foreground bg-muted p-2 rounded">
+              Use these tools to move data between accounts. Imported data will be merged with your existing records.
             </p>
           </div>
         </div>

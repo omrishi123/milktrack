@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -173,6 +172,10 @@ export default function MilkTrackerApp() {
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
         onSave={handleSaveSettings}
+        customers={customers}
+        milkEntries={milkEntries}
+        db={db!}
+        userId={user.uid}
       />
 
       <ProfileModal
