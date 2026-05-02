@@ -128,13 +128,12 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       const url = URL.createObjectURL(pdfBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Bill_${customer.name}_${new Date().toISOString().split('T')[0]}.pdf`;
+      link.download = `Bill_${customer.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
       link.click();
       URL.revokeObjectURL(url);
-      toast({ title: "Success", description: "PDF bill downloaded successfully." });
-    } else {
-      toast({ title: "Error", description: "Could not generate PDF.", variant: "destructive" });
+      return true;
     }
+    return false;
   };
 
   const handleShareProfessional = async () => {
@@ -155,6 +154,10 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
                      `--------------------------\n\n` +
                      `Please find the detailed PDF invoice attached. Thank you!`;
 
+    const phone = customer.phoneNumber?.replace(/\D/g, '');
+    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(billText)}`;
+
+    // 1. Try modern system sharing (PDF + Text)
     if (pdfBlob && navigator.share && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], 'bill.pdf', { type: 'application/pdf' })] })) {
       const file = new File([pdfBlob], `Bill_${customer.name.replace(/\s+/g, '_')}.pdf`, { type: 'application/pdf' });
       try {
@@ -163,29 +166,25 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
           title: 'Milk Bill Invoice',
           text: billText
         });
+        return;
       } catch (err: any) {
-        if (err.name !== 'AbortError') {
-          openWhatsAppFallback(billText);
-        }
+        // User cancelled or error, continue to fallback
+        if (err.name === 'AbortError') return;
       }
-    } else {
-      // Fallback for Desktop/Non-sharing browsers
-      if (pdfBlob) {
-        const url = URL.createObjectURL(pdfBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `Bill_${customer.name}.pdf`;
-        link.click();
-        toast({ title: "PDF Downloaded", description: "Please attach the file manually in WhatsApp." });
-      }
-      openWhatsAppFallback(billText);
     }
-  };
 
-  const openWhatsAppFallback = (text: string) => {
-    const phone = customer.phoneNumber?.replace(/\D/g, '');
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
-    window.open(url, '_blank');
+    // 2. Fallback: Download PDF automatically + Open WhatsApp Direct Chat
+    if (pdfBlob) {
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Bill_${customer.name.replace(/\s+/g, '_')}.pdf`;
+      link.click();
+      toast({ title: "PDF Ready", description: "PDF downloaded. Now opening WhatsApp chat..." });
+    }
+    
+    // Open the direct chat API
+    window.open(waUrl, '_blank');
   };
 
   return (
