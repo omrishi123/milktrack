@@ -65,11 +65,23 @@ export default function MilkTrackerApp() {
     }
   }, [settings.darkMode]);
 
+  // Loading screen for app initialization
   if (authLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-muted-foreground font-medium animate-pulse">Loading Your Dashboard...</p>
+        <div className="relative">
+          <div className="absolute inset-0 bg-primary/20 rounded-full animate-ping h-20 w-20"></div>
+          <div className="relative bg-primary p-5 rounded-3xl shadow-2xl">
+            <Droplets className="h-10 w-10 text-white animate-bounce" />
+          </div>
+        </div>
+        <div className="mt-12 text-center space-y-2">
+          <p className="text-2xl font-black text-primary animate-pulse">Milk Tracker Pro</p>
+          <div className="flex items-center gap-2 justify-center text-muted-foreground text-sm">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            <span>Securing your delivery records...</span>
+          </div>
+        </div>
       </div>
     );
   }
@@ -195,7 +207,7 @@ export default function MilkTrackerApp() {
               </AvatarFallback>
             </Avatar>
             <span className="text-sm font-medium hidden sm:inline-block max-w-[100px] truncate">
-              {profile.displayName || 'Profile'}
+              {profile.displayName || profile.email || 'Profile'}
             </span>
           </button>
         </div>

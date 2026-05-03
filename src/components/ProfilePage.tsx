@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { UserProfile } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,6 +22,14 @@ export default function ProfilePage({ profile, onSave, onSignOut, onBack }: Prof
   const [isSaving, setIsSaving] = useState(false);
   const userPhotoInputRef = useRef<HTMLInputElement>(null);
   const businessLogoInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync formData with props when they change (e.g., when Firestore data finally loads)
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      ...profile
+    }));
+  }, [profile]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
