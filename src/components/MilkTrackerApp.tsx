@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -148,15 +149,26 @@ export default function MilkTrackerApp() {
 
   const handleSaveProfile = (newProfile: UserProfile) => {
     if (!profileRef) return;
-    setDoc(profileRef, newProfile, { merge: true }).catch(async (err) => {
-      const permissionError = new FirestorePermissionError({
-        path: profileRef.path,
-        operation: 'write',
-        requestResourceData: newProfile,
+    
+    // Optimistically update local view, though Firestore snapshot will do this eventually
+    setDoc(profileRef, newProfile, { merge: true })
+      .then(() => {
+        toast({ title: "Profile Saved", description: "Your profile has been updated." });
+      })
+      .catch(async (err) => {
+        console.error("Profile save error:", err);
+        const permissionError = new FirestorePermissionError({
+          path: profileRef.path,
+          operation: 'write',
+          requestResourceData: newProfile,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        toast({ 
+          title: "Save Failed", 
+          description: "Could not save profile. The image might be too large.", 
+          variant: "destructive" 
+        });
       });
-      errorEmitter.emit('permission-error', permissionError);
-    });
-    toast({ title: "Profile Saved", description: "Your profile has been updated." });
   };
 
   return (

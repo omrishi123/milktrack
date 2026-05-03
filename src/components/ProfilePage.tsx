@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -9,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { LogOut, User, Camera, Loader2, Save, ChevronLeft, Building2, Image as ImageIcon, Mail } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProfilePageProps {
   profile: UserProfile;
@@ -20,15 +22,19 @@ interface ProfilePageProps {
 export default function ProfilePage({ profile, onSave, onSignOut, onBack }: ProfilePageProps) {
   const [formData, setFormData] = useState<UserProfile>(profile);
   const [isSaving, setIsSaving] = useState(false);
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
   const userPhotoInputRef = useRef<HTMLInputElement>(null);
   const businessLogoInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   // Sync formData with props when they change (e.g., when Firestore data finally loads)
   useEffect(() => {
-    setFormData(prev => ({
-      ...prev,
-      ...profile
-    }));
+    if (profile) {
+      setFormData(prev => ({
+        ...prev,
+        ...profile
+      }));
+    }
   }, [profile]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -36,12 +42,70 @@ export default function ProfilePage({ profile, onSave, onSignOut, onBack }: Prof
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, field: 'photoBase64' | 'businessLogoBase64') => {
+  /**
+   * Resizes and compresses images to stay under Firestore 1MB limit.
+   */
+  const compressImage = (base64Str: string, maxWidth = 500, maxHeight = 500): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          // Compress as JPEG with 0.7 quality to significantly reduce size
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        } else {
+          resolve(base64Str);
+        }
+      };
+      img.onerror = () => resolve(base64Str);
+    });
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'photoBase64' | 'businessLogoBase64') => {
     const file = e.target.files?.[0];
     if (file) {
+      // Basic size check for immediate feedback (10MB limit before processing)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please select an image smaller than 10MB.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      setIsProcessingImage(true);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, [field]: reader.result as string }));
+      reader.onloadend = async () => {
+        const originalBase64 = reader.result as string;
+        try {
+          const compressed = await compressImage(originalBase64);
+          setFormData(prev => ({ ...prev, [field]: compressed }));
+        } catch (err) {
+          console.error("Image processing failed:", err);
+          toast({ title: "Processing Error", description: "Failed to process image.", variant: "destructive" });
+        } finally {
+          setIsProcessingImage(false);
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -51,6 +115,8 @@ export default function ProfilePage({ profile, onSave, onSignOut, onBack }: Prof
     setIsSaving(true);
     try {
       await onSave(formData);
+    } catch (err) {
+      console.error("Save failed:", err);
     } finally {
       setIsSaving(false);
     }
@@ -83,8 +149,9 @@ export default function ProfilePage({ profile, onSave, onSignOut, onBack }: Prof
                   variant="secondary" 
                   className="absolute bottom-0 right-0 rounded-full h-8 w-8 shadow-lg border-2 border-background"
                   onClick={() => userPhotoInputRef.current?.click()}
+                  disabled={isProcessingImage}
                 >
-                  <Camera className="h-4 w-4" />
+                  {isProcessingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
                 </Button>
                 <input 
                   type="file" 
@@ -111,8 +178,9 @@ export default function ProfilePage({ profile, onSave, onSignOut, onBack }: Prof
                   variant="secondary" 
                   className="absolute bottom-0 right-0 rounded-full h-8 w-8 shadow-lg border-2 border-background"
                   onClick={() => businessLogoInputRef.current?.click()}
+                  disabled={isProcessingImage}
                 >
-                  <Building2 className="h-4 w-4" />
+                  {isProcessingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4" />}
                 </Button>
                 <input 
                   type="file" 
@@ -192,7 +260,7 @@ export default function ProfilePage({ profile, onSave, onSignOut, onBack }: Prof
           </Button>
           <div className="flex gap-2 w-full sm:ml-auto">
             <Button variant="outline" className="flex-1" onClick={onBack}>Cancel</Button>
-            <Button onClick={handleSave} disabled={isSaving} className="flex-1 min-w-[140px]">
+            <Button onClick={handleSave} disabled={isSaving || isProcessingImage} className="flex-1 min-w-[140px]">
               {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Save Profile
             </Button>
