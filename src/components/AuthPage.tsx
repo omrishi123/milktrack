@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from 'react';
@@ -14,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Droplets, Mail } from 'lucide-react';
+import { Loader2, Droplets } from 'lucide-react';
 
 export default function AuthPage() {
   const [email, setEmail] = useState('');
@@ -36,12 +35,39 @@ export default function AuthPage() {
         toast({ title: "Account Created", description: "Welcome to Milk Tracker Pro!" });
       }
     } catch (error: any) {
+      console.error("Auth Error Code:", error.code);
       let message = "An error occurred during authentication.";
-      if (error.code === 'auth/user-not-found') message = "No account found with this email.";
-      if (error.code === 'auth/wrong-password') message = "Incorrect password.";
-      if (error.code === 'auth/email-already-in-use') message = "This email is already registered.";
       
-      toast({ title: "Auth Error", description: message, variant: "destructive" });
+      // Handle various Firebase Auth error codes
+      switch (error.code) {
+        case 'auth/user-not-found':
+          message = "No account found with this email.";
+          break;
+        case 'auth/wrong-password':
+          message = "Incorrect password. Please try again.";
+          break;
+        case 'auth/invalid-credential':
+          message = "Invalid email or password. Please check your details.";
+          break;
+        case 'auth/email-already-in-use':
+          message = "This email is already registered. Try logging in.";
+          break;
+        case 'auth/weak-password':
+          message = "Password should be at least 6 characters.";
+          break;
+        case 'auth/invalid-email':
+          message = "Please enter a valid email address.";
+          break;
+        case 'auth/too-many-requests':
+          message = "Too many failed attempts. Please try again later.";
+          break;
+      }
+      
+      toast({ 
+        title: "Authentication Failed", 
+        description: message, 
+        variant: "destructive" 
+      });
     } finally {
       setIsLoading(false);
     }
@@ -53,7 +79,9 @@ export default function AuthPage() {
     try {
       await signInWithPopup(auth, provider);
     } catch (error: any) {
-      toast({ title: "Google Sign In Error", description: error.message, variant: "destructive" });
+      if (error.code !== 'auth/popup-closed-by-user') {
+        toast({ title: "Google Sign In Error", description: error.message, variant: "destructive" });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -61,28 +89,19 @@ export default function AuthPage() {
 
   const handleForgotPassword = async () => {
     if (!email) {
-      toast({ title: "Input Required", description: "Please enter your email address first.", variant: "destructive" });
+      toast({ title: "Input Required", description: "Please enter your email address to receive a reset link.", variant: "destructive" });
       return;
     }
     setIsResetting(true);
     try {
       await sendPasswordResetEmail(auth, email.trim());
-      toast({ title: "Email Sent", description: "Check your inbox for password reset instructions." });
+      toast({ title: "Reset Email Sent", description: "Check your inbox for instructions to reset your password." });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
       setIsResetting(false);
     }
   };
-
-  if (isLoading && !isLogin && !password) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-muted-foreground animate-pulse">Initializing Secure Session...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-[var(--bg-color)] p-4">

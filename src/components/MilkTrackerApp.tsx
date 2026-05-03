@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -11,7 +10,6 @@ import SettingsPage from '@/components/SettingsPage';
 import ProfilePage from '@/components/ProfilePage';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Toaster } from '@/components/ui/toaster';
 import { Settings as SettingsIcon, User as UserIcon, Loader2, Home, Droplets } from 'lucide-react';
 import { Customer, MilkEntry, AppSettings, UserProfile } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -51,7 +49,6 @@ export default function MilkTrackerApp() {
 
   const settings = settingsData || { sellerName: '', defaultPrice: 0, darkMode: false, ownerId: user?.uid || '' };
   
-  // Merge Firestore profile with base user info to ensure email is always present
   const profile = useMemo(() => {
     return {
       email: user?.email || '',
@@ -249,8 +246,6 @@ export default function MilkTrackerApp() {
           />
         )}
       </main>
-
-      <Toaster />
     </div>
   );
 }
