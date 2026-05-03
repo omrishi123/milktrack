@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { LogOut, User, Camera, Loader2, Save, ChevronLeft, Building2, Image as ImageIcon } from 'lucide-react';
+import { LogOut, User, Camera, Loader2, Save, ChevronLeft, Building2, Image as ImageIcon, Mail } from 'lucide-react';
 
 interface ProfilePageProps {
   profile: UserProfile;
@@ -120,6 +120,17 @@ export default function ProfilePage({ profile, onSave, onSignOut, onBack }: Prof
           </div>
 
           <div className="grid gap-6">
+            <div className="grid gap-2">
+              <Label htmlFor="email" className="font-bold flex items-center gap-2">
+                <Mail className="h-4 w-4" /> Registered Email
+              </Label>
+              <Input
+                id="email"
+                value={formData.email || ''}
+                readOnly
+                className="bg-muted text-muted-foreground cursor-not-allowed h-12"
+              />
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="displayName" className="font-bold">Full Name</Label>
               <Input

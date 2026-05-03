@@ -50,7 +50,15 @@ export default function MilkTrackerApp() {
   const { data: profileData } = useDoc<UserProfile>(profileRef);
 
   const settings = settingsData || { sellerName: '', defaultPrice: 0, darkMode: false, ownerId: user?.uid || '' };
-  const profile = profileData || { email: user?.email || '', displayName: user?.displayName || '' };
+  
+  // Merge Firestore profile with base user info to ensure email is always present
+  const profile = useMemo(() => {
+    return {
+      email: user?.email || '',
+      displayName: user?.displayName || '',
+      ...profileData
+    };
+  }, [user, profileData]);
 
   useEffect(() => {
     if (settings.darkMode) {
@@ -60,7 +68,15 @@ export default function MilkTrackerApp() {
     }
   }, [settings.darkMode]);
 
-  if (authLoading) return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-primary" /></div>;
+  if (authLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground font-medium animate-pulse">Loading Your Dashboard...</p>
+      </div>
+    );
+  }
+
   if (!user) return <AuthPage />;
 
   const handleAddCustomer = (customerData: Omit<Customer, 'ownerId'>) => {
@@ -188,49 +204,51 @@ export default function MilkTrackerApp() {
         </div>
       </header>
 
-      {currentView === 'dashboard' && (
-        <Dashboard
-          customers={customers}
-          milkEntries={milkEntries}
-          onAddCustomer={handleAddCustomer}
-          onUpdateCustomer={handleUpdateCustomer}
-          onDeleteCustomer={handleDeleteCustomer}
-          onSelectCustomer={(c) => { setSelectedCustomer(c); setCurrentView('customer-detail'); }}
-        />
-      )}
+      <main className="min-h-[60vh]">
+        {currentView === 'dashboard' && (
+          <Dashboard
+            customers={customers}
+            milkEntries={milkEntries}
+            onAddCustomer={handleAddCustomer}
+            onUpdateCustomer={handleUpdateCustomer}
+            onDeleteCustomer={handleDeleteCustomer}
+            onSelectCustomer={(c) => { setSelectedCustomer(c); setCurrentView('customer-detail'); }}
+          />
+        )}
 
-      {currentView === 'customer-detail' && selectedCustomer && (
-        <CustomerDetail
-          customer={selectedCustomer}
-          entries={milkEntries.filter(e => e.customerName === selectedCustomer.name)}
-          settings={settings}
-          profile={profile}
-          onBack={() => { setCurrentView('dashboard'); setSelectedCustomer(null); }}
-          db={db!}
-          userId={user.uid}
-        />
-      )}
+        {currentView === 'customer-detail' && selectedCustomer && (
+          <CustomerDetail
+            customer={selectedCustomer}
+            entries={milkEntries.filter(e => e.customerName === selectedCustomer.name)}
+            settings={settings}
+            profile={profile}
+            onBack={() => { setCurrentView('dashboard'); setSelectedCustomer(null); }}
+            db={db!}
+            userId={user.uid}
+          />
+        )}
 
-      {currentView === 'profile' && (
-        <ProfilePage
-          profile={profile}
-          onSave={handleSaveProfile}
-          onSignOut={() => signOut()}
-          onBack={() => setCurrentView('dashboard')}
-        />
-      )}
+        {currentView === 'profile' && (
+          <ProfilePage
+            profile={profile}
+            onSave={handleSaveProfile}
+            onSignOut={() => signOut()}
+            onBack={() => setCurrentView('dashboard')}
+          />
+        )}
 
-      {currentView === 'settings' && (
-        <SettingsPage
-          settings={settings}
-          onSave={handleSaveSettings}
-          customers={customers}
-          milkEntries={milkEntries}
-          db={db!}
-          userId={user.uid}
-          onBack={() => setCurrentView('dashboard')}
-        />
-      )}
+        {currentView === 'settings' && (
+          <SettingsPage
+            settings={settings}
+            onSave={handleSaveSettings}
+            customers={customers}
+            milkEntries={milkEntries}
+            db={db!}
+            userId={user.uid}
+            onBack={() => setCurrentView('dashboard')}
+          />
+        )}
+      </main>
 
       <Toaster />
     </div>
