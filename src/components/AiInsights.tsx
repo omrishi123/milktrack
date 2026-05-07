@@ -30,7 +30,7 @@ export default function AiInsights({ customerName, entries }: AiInsightsProps) {
       const result = await customerInsightsSummary({
         customerName,
         milkEntries: entries.map(e => ({
-          id: e.id,
+          id: e.id || 'unknown',
           date: e.date,
           timeOfDay: e.timeOfDay,
           milkQuantity: e.milkQuantity,

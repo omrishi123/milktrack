@@ -11,7 +11,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const MilkEntrySchema = z.object({
-  id: z.number().describe('Unique ID for the milk entry.'),
+  id: z.string().describe('Unique ID for the milk entry.'),
   date: z.string().describe('Date of the entry in YYYY-MM-DD format.'),
   timeOfDay: z.enum(['Morning', 'Evening']).describe('Time of day for the entry.'),
   milkQuantity: z.number().describe('Quantity of milk in liters.'),
