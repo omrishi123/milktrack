@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useRef } from 'react';
@@ -9,8 +8,9 @@ import HistoryTable from './HistoryTable';
 import EntryForm from './EntryForm';
 import PaymentForm from './PaymentForm';
 import AiInsights from './AiInsights';
+import SmartHisab from './SmartHisab';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Printer, Download, Sparkles, Phone, MapPin, MessageCircle, Share2, Loader2, FileText, Send, Droplets } from 'lucide-react';
+import { ChevronLeft, Printer, Download, Sparkles, Phone, MapPin, MessageCircle, Share2, Loader2, FileText, Send, Droplets, Calculator } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '@/hooks/use-toast';
 import html2canvas from 'html2canvas';
@@ -27,7 +27,7 @@ interface CustomerDetailProps {
 }
 
 export default function CustomerDetail({ customer, entries, settings, profile, onBack, db, userId }: CustomerDetailProps) {
-  const [activeTab, setActiveTab] = useState<'entry' | 'history' | 'payment' | 'ai'>('entry');
+  const [activeTab, setActiveTab] = useState<'entry' | 'history' | 'payment' | 'ai' | 'hisab'>('entry');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const printAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -254,14 +254,18 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       </div>
 
       <nav className="flex flex-wrap gap-2 p-1 bg-muted rounded-lg no-print">
-        <button className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all ${activeTab === 'entry' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('entry')}>Add Entry</button>
-        <button className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all ${activeTab === 'history' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('history')}>History</button>
-        <button className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all ${activeTab === 'payment' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('payment')}>Payments</button>
-        <button className={`flex-1 py-2 px-4 rounded-md font-semibold transition-all flex items-center justify-center gap-1 ${activeTab === 'ai' ? 'bg-background shadow-sm text-amber-600' : 'text-muted-foreground'}`} onClick={() => setActiveTab('ai')}><Sparkles className="h-4 w-4" /> AI Insights</button>
+        <button className={`flex-1 py-2 px-3 rounded-md font-semibold transition-all text-sm ${activeTab === 'entry' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('entry')}>Add Entry</button>
+        <button className={`flex-1 py-2 px-3 rounded-md font-semibold transition-all text-sm ${activeTab === 'history' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('history')}>History</button>
+        <button className={`flex-1 py-2 px-3 rounded-md font-semibold transition-all text-sm flex items-center justify-center gap-1 ${activeTab === 'hisab' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('hisab')}><Calculator className="h-4 w-4" /> Smart Hisab</button>
+        <button className={`flex-1 py-2 px-3 rounded-md font-semibold transition-all text-sm ${activeTab === 'payment' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('payment')}>Payments</button>
+        <button className={`flex-1 py-2 px-3 rounded-md font-semibold transition-all text-sm flex items-center justify-center gap-1 ${activeTab === 'ai' ? 'bg-background shadow-sm text-amber-600' : 'text-muted-foreground'}`} onClick={() => setActiveTab('ai')}><Sparkles className="h-4 w-4" /> AI Insights</button>
       </nav>
 
       <div className={`${activeTab === 'entry' ? '' : 'hidden'} no-print`}>
         <EntryForm customerName={customer.name} defaultPrice={settings.defaultPrice} onAdd={handleAddEntry} />
+      </div>
+      <div className={`${activeTab === 'hisab' ? '' : 'hidden'} no-print`}>
+        <SmartHisab customerName={customer.name} phoneNumber={customer.phoneNumber} entries={entries} sellerName={settings.sellerName || profile.displayName || 'Milk Tracker Pro'} />
       </div>
       <div className={`${activeTab === 'payment' ? '' : 'hidden'} no-print`}>
         <PaymentForm customerName={customer.name} onMarkPaid={handleMarkPaid} />
