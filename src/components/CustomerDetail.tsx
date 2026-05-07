@@ -10,11 +10,12 @@ import PaymentForm from './PaymentForm';
 import AiInsights from './AiInsights';
 import SmartHisab from './SmartHisab';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Printer, Download, Sparkles, Phone, MapPin, MessageCircle, Share2, Loader2, FileText, Send, Droplets, Calculator } from 'lucide-react';
+import { ChevronLeft, Printer, Download, Sparkles, Phone, MapPin, Loader2, FileText, Send, Droplets, Calculator } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '@/hooks/use-toast';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import { formatDate } from '@/lib/utils';
 
 interface CustomerDetailProps {
   customer: Customer;
@@ -40,7 +41,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     
     const sortedDates = [...entries].map(e => e.date).sort();
     const dateRange = sortedDates.length > 0 
-      ? `${sortedDates[0]} to ${sortedDates[sortedDates.length - 1]}`
+      ? `${formatDate(sortedDates[0])} to ${formatDate(sortedDates[sortedDates.length - 1])}`
       : 'No entries';
 
     return { totalLiters, totalAmount, totalPaid, totalDue, dateRange };
@@ -301,7 +302,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
           </div>
           <div className="text-right">
             <h2 className="text-4xl font-black text-gray-300">INVOICE</h2>
-            <p className="text-sm font-bold mt-2">Bill Date: {new Date().toLocaleDateString()}</p>
+            <p className="text-sm font-bold mt-2">Bill Date: {formatDate(new Date().toISOString().split('T')[0])}</p>
             <div className="mt-2 flex justify-end">
               <span className="text-xs text-black py-1 uppercase font-bold leading-none inline-block border-b-2 border-black">
                 Period: {billStats.dateRange}
@@ -331,7 +332,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
           <tbody className="divide-y divide-gray-200">
             {entries.sort((a,b) => a.date.localeCompare(b.date)).map(e => (
               <tr key={e.id} className="align-top">
-                <td className="py-3 px-2">{e.date}</td>
+                <td className="py-3 px-2">{formatDate(e.date)}</td>
                 <td className="py-3 px-2 font-medium">{e.timeOfDay}</td>
                 <td className="py-3 px-2 text-right">{e.milkQuantity.toFixed(2)}</td>
                 <td className="py-3 px-2 text-right">{e.price.toFixed(2)}</td>

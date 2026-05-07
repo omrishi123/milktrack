@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Calculator, Calendar, ArrowRight, Droplets, Banknote, History, Send, MessageCircle } from 'lucide-react';
+import { Calculator, Calendar, Droplets, Banknote, History, MessageCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { formatDate } from '@/lib/utils';
 
 interface SmartHisabProps {
   customerName: string;
@@ -40,7 +41,7 @@ export default function SmartHisab({ customerName, phoneNumber, entries, sellerN
     const text = `*📊 SMART HISAB SUMMARY*\n` +
                  `*Seller:* ${sellerName}\n` +
                  `*Customer:* ${customerName}\n` +
-                 `*Period:* ${fromDate} to ${toDate}\n` +
+                 `*Period:* ${formatDate(fromDate)} to ${formatDate(toDate)}\n` +
                  `--------------------------\n` +
                  `*Total Volume:* ${stats.totalLiters.toFixed(2)} L\n` +
                  `*Total Amount:* ₹${stats.totalAmount.toFixed(2)}\n` +
@@ -149,7 +150,7 @@ export default function SmartHisab({ customerName, phoneNumber, entries, sellerN
               stats.filtered.sort((a,b) => b.date.localeCompare(a.date)).map(e => (
                 <div key={e.id} className="flex items-center justify-between p-3 px-6 hover:bg-muted/30 transition-colors">
                   <div className="flex flex-col">
-                    <span className="font-bold text-sm">{e.date}</span>
+                    <span className="font-bold text-sm">{formatDate(e.date)}</span>
                     <span className="text-[10px] text-muted-foreground">{e.timeOfDay}</span>
                   </div>
                   <div className="flex items-center gap-6">

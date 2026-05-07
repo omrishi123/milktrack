@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { errorEmitter, FirestorePermissionError } from '@/firebase';
+import { formatDate } from '@/lib/utils';
 
 interface HistoryTableProps {
   entries: MilkEntry[];
@@ -101,7 +102,7 @@ export default function HistoryTable({ entries, db, userId }: HistoryTableProps)
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input 
               className="pl-9" 
-              placeholder="YYYY-MM-DD" 
+              placeholder="Search by date..." 
               value={search} 
               onChange={e => setSearch(e.target.value)} 
             />
@@ -161,7 +162,7 @@ export default function HistoryTable({ entries, db, userId }: HistoryTableProps)
               ) : (
                 filtered.map(e => (
                   <tr key={e.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="p-4 font-medium">{e.date}</td>
+                    <td className="p-4 font-medium">{formatDate(e.date)}</td>
                     <td className="p-4">{e.timeOfDay}</td>
                     <td className="p-4">{e.milkQuantity.toFixed(2)} L</td>
                     <td className="p-4 font-semibold">₹{e.total.toFixed(2)}</td>
