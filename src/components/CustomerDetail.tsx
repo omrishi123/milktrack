@@ -144,35 +144,68 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
   const generatePdfBlob = async (): Promise<Blob | null> => {
     if (!printAreaRef.current) return null;
     
-    const originalStyle = printAreaRef.current.style.cssText;
-    // Force visibility and set fixed width for consistent capture (Solves half-page bug)
-    printAreaRef.current.style.cssText = "display: block !important; position: fixed; left: -9999px; top: 0; width: 800px; background: white; visibility: visible !important; color: black !important; padding: 40px;";
+    const element = printAreaRef.current;
+    const originalStyle = element.style.cssText;
+    
+    // Force element visibility and absolute positioning for full capture
+    // Setting fixed width (800px) ensures layout stability during canvas capture
+    element.style.cssText = `
+      display: block !important;
+      visibility: visible !important;
+      position: absolute !important;
+      left: 0 !important;
+      top: 0 !important;
+      width: 800px !important;
+      height: auto !important;
+      background: white !important;
+      color: black !important;
+      z-index: -9999 !important;
+      padding: 40px !important;
+    `;
     
     try {
-      const canvas = await html2canvas(printAreaRef.current, { 
+      // Use html2canvas to capture the hidden but styled element
+      const canvas = await html2canvas(element, { 
         scale: 2, 
         useCORS: true, 
         backgroundColor: '#ffffff',
-        logging: false
+        logging: false,
+        width: 800,
+        height: element.scrollHeight, // Capture the entire scroll height
+        scrollY: -window.scrollY // Offset window scroll
       });
       
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = 210;
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      
+      // Handle multi-page PDF if content is too long for one A4 page
+      const pageHeight = 297;
+      let heightLeft = pdfHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+      }
       
       return pdf.output('blob');
     } catch (err) {
       console.error("PDF generation failed:", err);
       return null;
     } finally {
-      printAreaRef.current.style.cssText = originalStyle;
+      element.style.cssText = originalStyle;
     }
   };
 
   const handleShareTextSummary = () => {
-    const text = `*🍼 MILK BILL SUMMARY*\n*Seller:* ${settings.sellerName || profile.displayName}\n*Customer:* ${customer.name}\n*Period:* ${billStats.dateRange}\n*Total Vol:* ${billStats.totalLiters.toFixed(2)} L\n*Total Due:* ₹${billStats.totalDue.toFixed(2)}`;
+    const text = `*🍼 MILK BILL SUMMARY*\n*Seller:* ${settings.sellerName || profile.displayName}\n*Customer:* ${customer.name}\n*Period:* ${billStats.dateRange}\n*Total Vol:* ${billStats.totalLiters.toFixed(2)} L\n*Subtotal:* ₹${billStats.totalAmount.toFixed(2)}\n*Paid:* ₹${billStats.totalPaid.toFixed(2)}\n*PENDING DUE:* ₹${billStats.totalDue.toFixed(2)}`;
     const phone = customer.phoneNumber?.replace(/\D/g, '');
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
   };
@@ -188,10 +221,11 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       if (navigator.share) {
         const file = new File([blob], `Milk_Bill_${customer.name}.pdf`, { type: 'application/pdf' });
         try {
+          // navigator.share requires a user gesture. The click on the button provides this.
           await navigator.share({
             files: [file],
             title: 'Milk Bill',
-            text: `Invoice for ${customer.name}`
+            text: `Invoice for ${customer.name} - Balance: ₹${billStats.totalDue.toFixed(2)}`
           });
         } catch (shareErr: any) {
           if (shareErr.name !== 'AbortError') {
@@ -302,6 +336,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       <div className={`${activeTab === 'payment' ? '' : 'hidden'} no-print`}><PaymentForm customerName={customer.name} onMarkPaid={handleMarkPaid} /></div>
       <div className={`${activeTab === 'ai' ? '' : 'hidden'} no-print`}><AiInsights customerName={customer.name} entries={entries} /></div>
 
+      {/* The Printable/PDF-able Area */}
       <div id="print-area" ref={printAreaRef} className="hidden print:block font-serif text-black p-8 bg-white border">
         <div className="flex justify-between items-start border-b-4 border-black pb-4 mb-6">
           <div>
@@ -314,11 +349,14 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
             <p className="text-sm font-bold mt-2">Date: {formatDate(new Date().toISOString().split('T')[0])}</p>
           </div>
         </div>
+        
         <div className="mb-8">
           <h3 className="text-xs font-black uppercase text-gray-500 mb-1">BILL TO:</h3>
           <p className="text-xl font-black uppercase">{customer.name}</p>
           {customer.address && <p className="text-sm">{customer.address}</p>}
+          <p className="text-xs mt-1">Period: {billStats.dateRange}</p>
         </div>
+
         <table className="w-full text-sm mb-8 border-collapse">
           <thead>
             <tr className="border-y-2 border-black bg-gray-50">
@@ -341,7 +379,9 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
             ))}
           </tbody>
         </table>
-        <div className="flex justify-between items-start gap-12 mt-4">
+
+        {/* Footer with Payment Info and Totals */}
+        <div className="flex justify-between items-start gap-12 mt-4 pt-4">
           <div>
             {upiUri && (
               <div className="border-2 border-black p-4 inline-block text-center bg-white shadow-sm">
@@ -351,13 +391,23 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
             )}
           </div>
           <div className="w-64 space-y-2">
-            <div className="flex justify-between text-sm"><span>Subtotal:</span><span className="font-bold">₹{billStats.totalAmount.toFixed(2)}</span></div>
-            <div className="flex justify-between text-sm text-emerald-700"><span>Received:</span><span className="font-bold">₹{billStats.totalPaid.toFixed(2)}</span></div>
-            <div className="flex justify-between text-xl font-black border-t-2 border-black pt-2"><span>BALANCE:</span><span>₹{billStats.totalDue.toFixed(2)}</span></div>
+            <div className="flex justify-between text-sm">
+              <span>Subtotal:</span>
+              <span className="font-bold">₹{billStats.totalAmount.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-emerald-800">
+              <span>Received (Paid):</span>
+              <span className="font-bold">₹{billStats.totalPaid.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-xl font-black border-t-2 border-black pt-2">
+              <span>BALANCE DUE:</span>
+              <span>₹{billStats.totalDue.toFixed(2)}</span>
+            </div>
           </div>
         </div>
+
         <div className="mt-12 text-center text-[10px] text-gray-400 border-t pt-4">
-          Powered by Milk Tracker Pro
+          Powered by Milk Tracker Pro - Professional Milk Delivery Solutions
         </div>
       </div>
     </div>
