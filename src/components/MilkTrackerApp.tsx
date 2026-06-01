@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -52,7 +51,7 @@ export default function MilkTrackerApp() {
   
   const profile = useMemo(() => {
     return {
-      email: user?.email || '',
+      email: user?.email || user?.phoneNumber || '',
       displayName: user?.displayName || '',
       ...profileData
     };
@@ -150,7 +149,6 @@ export default function MilkTrackerApp() {
   const handleSaveProfile = (newProfile: UserProfile) => {
     if (!profileRef) return;
     
-    // Optimistically update local view, though Firestore snapshot will do this eventually
     setDoc(profileRef, newProfile, { merge: true })
       .then(() => {
         toast({ title: "Profile Saved", description: "Your profile has been updated." });

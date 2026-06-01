@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -27,7 +26,6 @@ export default function ProfilePage({ profile, onSave, onSignOut, onBack }: Prof
   const businessLogoInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  // Sync formData with props when they change (e.g., when Firestore data finally loads)
   useEffect(() => {
     if (profile) {
       setFormData(prev => ({
@@ -42,9 +40,6 @@ export default function ProfilePage({ profile, onSave, onSignOut, onBack }: Prof
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  /**
-   * Resizes and compresses images to stay under Firestore 1MB limit.
-   */
   const compressImage = (base64Str: string, maxWidth = 500, maxHeight = 500): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
@@ -70,7 +65,6 @@ export default function ProfilePage({ profile, onSave, onSignOut, onBack }: Prof
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          // Compress as JPEG with 0.7 quality to significantly reduce size
           resolve(canvas.toDataURL('image/jpeg', 0.7));
         } else {
           resolve(base64Str);
@@ -83,7 +77,6 @@ export default function ProfilePage({ profile, onSave, onSignOut, onBack }: Prof
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'photoBase64' | 'businessLogoBase64') => {
     const file = e.target.files?.[0];
     if (file) {
-      // Basic size check for immediate feedback (10MB limit before processing)
       if (file.size > 10 * 1024 * 1024) {
         toast({
           title: "File too large",
@@ -197,7 +190,7 @@ export default function ProfilePage({ profile, onSave, onSignOut, onBack }: Prof
           <div className="grid gap-6">
             <div className="grid gap-2">
               <Label htmlFor="email" className="font-bold flex items-center gap-2">
-                <Mail className="h-4 w-4" /> Registered Email
+                <Mail className="h-4 w-4" /> Registered ID (Email/Phone)
               </Label>
               <Input
                 id="email"

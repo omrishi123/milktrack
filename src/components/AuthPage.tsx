@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Droplets, Mail, Lock, Phone, MessageSquare, ArrowRight, ChevronLeft } from 'lucide-react';
+import { Loader2, Droplets, Mail, Lock, Phone, MessageSquare, ArrowRight, ChevronLeft, AlertCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function AuthPage() {
@@ -94,14 +94,19 @@ export default function AuthPage() {
   const setupRecaptcha = () => {
     if ((window as any).recaptchaVerifier) return (window as any).recaptchaVerifier;
     
-    const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-      size: 'invisible',
-      callback: () => {
-        // reCAPTCHA solved
-      }
-    });
-    (window as any).recaptchaVerifier = verifier;
-    return verifier;
+    try {
+      const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'invisible',
+        callback: () => {
+          // reCAPTCHA solved
+        }
+      });
+      (window as any).recaptchaVerifier = verifier;
+      return verifier;
+    } catch (error) {
+      console.error("reCAPTCHA setup failed:", error);
+      return null;
+    }
   };
 
   const handleSendOtp = async (e: React.FormEvent) => {
@@ -120,22 +125,37 @@ export default function AuthPage() {
     setIsLoading(true);
     try {
       const verifier = setupRecaptcha();
+      if (!verifier) throw new Error("Could not initialize reCAPTCHA.");
+      
       const result = await signInWithPhoneNumber(auth, formattedPhone, verifier);
       setConfirmationResult(result);
       setShowOtpInput(true);
       toast({ title: "OTP Sent", description: `Verification code sent to ${formattedPhone}` });
     } catch (error: any) {
       console.error("Phone Auth Error:", error);
+      let message = error.message || "Could not send OTP.";
+      
+      if (error.code === 'auth/captcha-check-failed' || error.message?.includes('Hostname')) {
+        message = "Domain not authorized. Go to Firebase Console > Auth > Settings and add this domain to 'Authorized Domains'.";
+      } else if (error.code === 'auth/invalid-phone-number') {
+        message = "The phone number is invalid. Please use 10 digits.";
+      }
+
       toast({ 
         title: "OTP Failed", 
-        description: error.message || "Could not send OTP. Ensure your number is correct.", 
+        description: message, 
         variant: "destructive" 
       });
+
       // Reset reCAPTCHA if it failed
       if ((window as any).recaptchaVerifier) {
-        (window as any).recaptchaVerifier.render().then((widgetId: any) => {
-          (window as any).recaptchaVerifier.reset(widgetId);
-        });
+        try {
+          (window as any).recaptchaVerifier.render().then((widgetId: any) => {
+            (window as any).recaptchaVerifier.reset(widgetId);
+          });
+        } catch (resetErr) {
+          console.error("Verifier reset error:", resetErr);
+        }
       }
     } finally {
       setIsLoading(false);
@@ -347,6 +367,12 @@ export default function AuthPage() {
                       <span className="flex items-center gap-2">Send OTP <ArrowRight className="h-4 w-4" /></span>
                     )}
                   </Button>
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex gap-3 items-start border border-blue-100 dark:border-blue-800">
+                    <AlertCircle className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-blue-700 dark:text-blue-300">
+                      <strong>Note:</strong> Ensure your website URL is added to "Authorized Domains" in the Firebase Console to enable OTP login.
+                    </p>
+                  </div>
                 </form>
               ) : (
                 <form onSubmit={handleVerifyOtp} className="space-y-4">
