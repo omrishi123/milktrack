@@ -21,7 +21,6 @@ export default function MilkTrackerApp() {
 
   const [currentView, setCurrentView] = useState<'dashboard' | 'customer-detail' | 'profile' | 'settings'>('dashboard');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [hasCheckedInitialRedirect, setHasCheckedInitialRedirect] = useState(false);
 
   const customersQuery = useMemo(() => {
     if (!db || !user) return null;
@@ -59,22 +58,23 @@ export default function MilkTrackerApp() {
     };
   }, [user, profileData]);
 
-  // Initial Redirect Logic for New Users
+  // Initial Redirect Logic for New Users - Fixed to run only once ever
   useEffect(() => {
-    // Only run this check once auth and profile loading are finished
-    if (!authLoading && !profileLoading && user && !hasCheckedInitialRedirect) {
-      // If profile data doesn't exist in Firestore, it's a first-time sign-in
-      if (!profileData) {
+    if (!authLoading && !profileLoading && user) {
+      const storageKey = `onboarding_complete_${user.uid}`;
+      const hasSeenOnboarding = localStorage.getItem(storageKey);
+
+      if (!profileData && !hasSeenOnboarding) {
         setCurrentView('profile');
         toast({
           title: "Welcome to Milk Tracker Pro!",
           description: "Please set up your business profile to get started.",
         });
+        // Mark as seen so we don't redirect again even if they don't finish the profile immediately
+        localStorage.setItem(storageKey, 'true');
       }
-      // Set the flag to true so we don't force redirect again during this session
-      setHasCheckedInitialRedirect(true);
     }
-  }, [authLoading, profileLoading, user, profileData, hasCheckedInitialRedirect, toast]);
+  }, [authLoading, profileLoading, user, profileData, toast]);
 
   useEffect(() => {
     if (settings.darkMode) {
@@ -84,7 +84,6 @@ export default function MilkTrackerApp() {
     }
   }, [settings.darkMode]);
 
-  // Loading screen for app initialization
   if (authLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-background">
