@@ -61,14 +61,20 @@ export default function MilkTrackerApp() {
 
   // Initial Redirect Logic for New Users
   useEffect(() => {
+    // Only run this check once auth and profile loading are finished
     if (!authLoading && !profileLoading && user && !hasCheckedInitialRedirect) {
-      // If profile data doesn't exist, it's a new user or missing profile
+      // If profile data doesn't exist in Firestore, it's a first-time sign-in
       if (!profileData) {
         setCurrentView('profile');
+        toast({
+          title: "Welcome to Milk Tracker Pro!",
+          description: "Please set up your business profile to get started.",
+        });
       }
+      // Set the flag to true so we don't force redirect again during this session
       setHasCheckedInitialRedirect(true);
     }
-  }, [authLoading, profileLoading, user, profileData, hasCheckedInitialRedirect]);
+  }, [authLoading, profileLoading, user, profileData, hasCheckedInitialRedirect, toast]);
 
   useEffect(() => {
     if (settings.darkMode) {
