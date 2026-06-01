@@ -4,15 +4,9 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, Calendar as CalendarIcon } from 'lucide-react';
-import { format, parseISO } from "date-fns";
-import { cn } from "@/lib/utils";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { CheckCircle2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { formatDate } from '@/lib/utils';
 
 interface PaymentFormProps {
   customerName: string;
@@ -31,66 +25,40 @@ export default function PaymentForm({ customerName, onMarkPaid }: PaymentFormPro
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Update Payment Status</CardTitle>
-        <CardDescription>
+    <Card className="border shadow-md">
+      <CardHeader className="bg-muted/30">
+        <CardTitle className="text-lg font-black uppercase">Update Payment Status</CardTitle>
+        <CardDescription className="font-medium">
           Mark all entries for <strong>{customerName}</strong> within this range as paid.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2 flex flex-col">
-            <Label>From Date (Kab se)</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-black h-12",
-                    !from && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {from ? format(parseISO(from), "dd/MM/yyyy") : <span>Select Start Date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={parseISO(from)}
-                  onSelect={(d) => d && setFrom(d.toISOString().split('T')[0])}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+          <div className="space-y-2">
+            <Label htmlFor="from-date" className="font-bold">From Date (Kab se)</Label>
+            <Input
+              id="from-date"
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              required
+              className="h-12 font-bold"
+            />
+            <p className="text-[10px] text-muted-foreground font-bold uppercase">Start: {formatDate(from)}</p>
           </div>
-          <div className="space-y-2 flex flex-col">
-            <Label>To Date (Kab tak)</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-black h-12",
-                    !to && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {to ? format(parseISO(to), "dd/MM/yyyy") : <span>Select End Date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={parseISO(to)}
-                  onSelect={(d) => d && setTo(d.toISOString().split('T')[0])}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+          <div className="space-y-2">
+            <Label htmlFor="to-date" className="font-bold">To Date (Kab tak)</Label>
+            <Input
+              id="to-date"
+              type="date"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              required
+              className="h-12 font-bold"
+            />
+            <p className="text-[10px] text-muted-foreground font-bold uppercase">End: {formatDate(to)}</p>
           </div>
-          <Button type="submit" variant="default" className="md:col-span-2 w-full bg-emerald-600 hover:bg-emerald-700 h-14 text-xl font-black shadow-lg shadow-emerald-500/20">
+          <Button type="submit" variant="default" className="md:col-span-2 w-full bg-emerald-600 hover:bg-emerald-700 h-14 text-xl font-black shadow-lg shadow-emerald-500/20 uppercase tracking-tight">
             <CheckCircle2 className="mr-2 h-6 w-6" /> Mark as Paid
           </Button>
         </form>

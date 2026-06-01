@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useRef } from 'react';
-import { collection, addDoc, doc, updateDoc, Firestore, writeBatch, getDocs, query, where } from 'firebase/firestore';
+import { collection, addDoc, doc, Firestore, writeBatch, getDocs, query, where } from 'firebase/firestore';
 import { Customer, MilkEntry, AppSettings, UserProfile } from '@/lib/types';
 import { errorEmitter, FirestorePermissionError } from '@/firebase';
 import HistoryTable from './HistoryTable';
@@ -28,8 +28,7 @@ import {
   RefreshCw,
   Share2,
   MessageSquare,
-  Globe,
-  Calendar as CalendarIcon
+  Globe
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '@/hooks/use-toast';
@@ -39,14 +38,6 @@ import { formatDate, sanitizePhoneNumber } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { format, parseISO } from "date-fns";
-import { cn } from "@/lib/utils";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 
 interface CustomerDetailProps {
   customer: Customer;
@@ -158,6 +149,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     const element = printAreaRef.current;
     const originalStyle = element.style.cssText;
     
+    // Force the element to be visible and correctly sized for capture
     element.style.cssText = `
       display: block !important;
       visibility: visible !important;
@@ -317,55 +309,15 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
 
       {showBillFilters && (
         <div className="no-print p-4 bg-card border rounded-xl shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="space-y-1 flex flex-col">
-            <Label className="text-xs font-black uppercase">Start Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-bold",
-                    !billFromDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {billFromDate ? format(parseISO(billFromDate), "dd/MM/yyyy") : <span>Select Date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={billFromDate ? parseISO(billFromDate) : undefined}
-                  onSelect={(d) => d && setBillFromDate(d.toISOString().split('T')[0])}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+          <div className="space-y-1">
+            <Label htmlFor="bill-from" className="text-xs font-black uppercase">Start Date</Label>
+            <Input id="bill-from" type="date" value={billFromDate} onChange={(e) => setBillFromDate(e.target.value)} className="h-10 font-bold" />
+            <p className="text-[10px] text-muted-foreground font-bold uppercase">{formatDate(billFromDate)}</p>
           </div>
-          <div className="space-y-1 flex flex-col">
-            <Label className="text-xs font-black uppercase">End Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-bold",
-                    !billToDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {billToDate ? format(parseISO(billToDate), "dd/MM/yyyy") : <span>Select Date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={billToDate ? parseISO(billToDate) : undefined}
-                  onSelect={(d) => d && setBillToDate(d.toISOString().split('T')[0])}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+          <div className="space-y-1">
+            <Label htmlFor="bill-to" className="text-xs font-black uppercase">End Date</Label>
+            <Input id="bill-to" type="date" value={billToDate} onChange={(e) => setBillToDate(e.target.value)} className="h-10 font-bold" />
+            <p className="text-[10px] text-muted-foreground font-bold uppercase">{formatDate(billToDate)}</p>
           </div>
           <div className="flex items-end pb-1 gap-2">
             <div className="flex items-center space-x-2 border rounded-md px-2 h-10 w-full">
@@ -385,13 +337,13 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       </div>
 
       <nav className="flex flex-wrap gap-2 p-1 bg-muted rounded-lg no-print">
-        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'entry' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('entry')}>Add Entry</button>
-        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'history' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('history')}>History</button>
-        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase flex items-center justify-center gap-2 ${activeTab === 'hisab' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('hisab')}>
+        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'entry' ? 'bg-background shadow-sm text-primary border-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('entry')}>Add Entry</button>
+        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'history' ? 'bg-background shadow-sm text-primary border-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('history')}>History</button>
+        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase flex items-center justify-center gap-2 ${activeTab === 'hisab' ? 'bg-background shadow-sm text-primary border-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('hisab')}>
           <Calculator className="h-3 w-3" /> Smart Hisab
         </button>
-        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'payment' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('payment')}>Payments</button>
-        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'ai' ? 'bg-background shadow-sm text-amber-600' : 'text-muted-foreground'}`} onClick={() => setActiveTab('ai')}>AI Analysis</button>
+        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'payment' ? 'bg-background shadow-sm text-primary border-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('payment')}>Payments</button>
+        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'ai' ? 'bg-background shadow-sm text-amber-600 border-amber-600' : 'text-muted-foreground'}`} onClick={() => setActiveTab('ai')}>AI Analysis</button>
       </nav>
 
       <div className={`${activeTab === 'entry' ? '' : 'hidden'} no-print`}><EntryForm customerName={customer.name} defaultPrice={settings.defaultPrice} onAdd={handleAddEntry} /></div>

@@ -8,20 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatDate } from '@/lib/utils';
-import { Calendar as CalendarIcon } from "lucide-react";
-import { format, parseISO } from "date-fns";
-import { cn } from "@/lib/utils";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 
 interface EntryFormProps {
   customerName: string;
   defaultPrice: number;
-  onAdd: (entry: Omit<MilkEntry, 'id'>) => void;
+  onAdd: (entry: Omit<MilkEntry, 'id' | 'ownerId'>) => void;
 }
 
 export default function EntryForm({ customerName, defaultPrice, onAdd }: EntryFormProps) {
@@ -51,41 +42,28 @@ export default function EntryForm({ customerName, defaultPrice, onAdd }: EntryFo
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Add Daily Milk Entry</CardTitle>
+    <Card className="border shadow-md">
+      <CardHeader className="bg-muted/30">
+        <CardTitle className="text-lg font-black uppercase">Add Daily Milk Entry</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2 flex flex-col">
-            <Label>Date (Tareekh)</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-black h-12",
-                    !date && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? format(parseISO(date), "dd/MM/yyyy") : <span>Select Date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={parseISO(date)}
-                  onSelect={(d) => d && setDate(d.toISOString().split('T')[0])}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+          <div className="space-y-2">
+            <Label htmlFor="date" className="font-bold">Date (Tareekh)</Label>
+            <Input
+              id="date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              required
+              className="h-12 font-bold"
+            />
+            <p className="text-[10px] text-muted-foreground font-bold uppercase">Format: {formatDate(date)}</p>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="time">Time (Samay)</Label>
+            <Label htmlFor="time" className="font-bold">Time (Samay)</Label>
             <Select value={timeOfDay} onValueChange={(val: any) => setTimeOfDay(val)}>
-              <SelectTrigger id="time" className="h-12 font-bold">
+              <SelectTrigger id="time" className="h-12 font-bold bg-background">
                 <SelectValue placeholder="Select time" />
               </SelectTrigger>
               <SelectContent>
@@ -95,7 +73,7 @@ export default function EntryForm({ customerName, defaultPrice, onAdd }: EntryFo
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="quantity">Milk Quantity (Liters)</Label>
+            <Label htmlFor="quantity" className="font-bold">Milk Quantity (Liters)</Label>
             <Input
               id="quantity"
               type="number"
@@ -105,11 +83,11 @@ export default function EntryForm({ customerName, defaultPrice, onAdd }: EntryFo
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               required
-              className="h-12 text-lg font-bold"
+              className="h-12 text-lg font-black"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="price">Price per Liter (₹)</Label>
+            <Label htmlFor="price" className="font-bold">Price per Liter (₹)</Label>
             <Input
               id="price"
               type="number"
@@ -117,10 +95,10 @@ export default function EntryForm({ customerName, defaultPrice, onAdd }: EntryFo
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               required
-              className="h-12 text-lg font-bold"
+              className="h-12 text-lg font-black"
             />
           </div>
-          <Button type="submit" className="md:col-span-2 w-full h-14 text-xl font-black shadow-lg shadow-primary/20">
+          <Button type="submit" className="md:col-span-2 w-full h-14 text-xl font-black shadow-lg shadow-primary/20 uppercase tracking-tight">
             Record Delivery
           </Button>
         </form>

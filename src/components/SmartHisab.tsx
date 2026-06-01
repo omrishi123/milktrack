@@ -5,17 +5,10 @@ import { MilkEntry } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Calculator, Calendar as CalendarIcon, Droplets, Banknote, History, MessageCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Calculator, Droplets, Banknote, History, MessageCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatDate } from '@/lib/utils';
-import { format, parseISO } from "date-fns";
-import { cn } from "@/lib/utils";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 
 interface SmartHisabProps {
   customerName: string;
@@ -65,67 +58,39 @@ export default function SmartHisab({ customerName, phoneNumber, entries, sellerN
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
-      <Card className="border-primary/20 bg-primary/5">
-        <CardHeader>
+      <Card className="border-primary/20 bg-primary/5 shadow-md">
+        <CardHeader className="bg-primary/5">
           <div className="flex items-center gap-2">
             <Calculator className="h-5 w-5 text-primary" />
             <div>
-              <CardTitle>Smart Hisab Calculator</CardTitle>
-              <CardDescription>Calculate totals for any custom date range</CardDescription>
+              <CardTitle className="text-lg font-black uppercase">Smart Hisab Calculator</CardTitle>
+              <CardDescription className="font-medium">Calculate totals for any custom date range</CardDescription>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2 flex flex-col">
-              <Label>From Date (Yaha se)</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "w-full justify-start text-left font-black h-12 bg-background",
-                      !fromDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {fromDate ? format(parseISO(fromDate), "dd/MM/yyyy") : <span>Select Start Date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={parseISO(fromDate)}
-                    onSelect={(d) => d && setFromDate(d.toISOString().split('T')[0])}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+            <div className="space-y-2">
+              <Label htmlFor="smart-from" className="font-bold">From Date (Yaha se)</Label>
+              <Input
+                id="smart-from"
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="h-12 font-bold bg-background"
+              />
+              <p className="text-[10px] text-muted-foreground font-bold uppercase">From: {formatDate(fromDate)}</p>
             </div>
-            <div className="space-y-2 flex flex-col">
-              <Label>To Date (Yaha tak)</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "w-full justify-start text-left font-black h-12 bg-background",
-                      !toDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {toDate ? format(parseISO(toDate), "dd/MM/yyyy") : <span>Select End Date</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={parseISO(toDate)}
-                    onSelect={(d) => d && setToDate(d.toISOString().split('T')[0])}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+            <div className="space-y-2">
+              <Label htmlFor="smart-to" className="font-bold">To Date (Yaha tak)</Label>
+              <Input
+                id="smart-to"
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="h-12 font-bold bg-background"
+              />
+              <p className="text-[10px] text-muted-foreground font-bold uppercase">To: {formatDate(toDate)}</p>
             </div>
           </div>
         </CardContent>
@@ -165,9 +130,9 @@ export default function SmartHisab({ customerName, phoneNumber, entries, sellerN
         </Card>
       </div>
 
-      <Card className="shadow-none border-dashed">
-        <CardHeader className="pb-3 bg-muted/30">
-          <div className="flex justify-between items-center">
+      <Card className="shadow-none border-dashed overflow-hidden">
+        <CardHeader className="pb-3 bg-muted/30 border-b">
+          <div className="flex flex-wrap justify-between items-center gap-3">
             <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground">Period Breakdown</CardTitle>
             <Button 
               size="sm" 
@@ -175,7 +140,7 @@ export default function SmartHisab({ customerName, phoneNumber, entries, sellerN
               className="bg-emerald-600 hover:bg-emerald-700 gap-2 font-black shadow-lg shadow-emerald-500/20"
               disabled={stats.entryCount === 0}
             >
-              <MessageCircle className="h-4 w-4" /> Share on WhatsApp
+              <MessageCircle className="h-4 w-4" /> Share Hisab
             </Button>
           </div>
         </CardHeader>
@@ -184,7 +149,7 @@ export default function SmartHisab({ customerName, phoneNumber, entries, sellerN
             {stats.filtered.length === 0 ? (
               <div className="py-20 text-center space-y-3">
                 <div className="bg-muted w-16 h-16 rounded-full flex items-center justify-center mx-auto"><History className="h-8 w-8 text-muted-foreground" /></div>
-                <p className="text-muted-foreground font-bold">No records found for this period.</p>
+                <p className="text-muted-foreground font-bold uppercase text-xs">No records for this period.</p>
               </div>
             ) : (
               stats.filtered.sort((a,b) => b.date.localeCompare(a.date)).map(e => (
