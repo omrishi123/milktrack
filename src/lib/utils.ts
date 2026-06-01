@@ -10,7 +10,9 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function formatDate(dateStr: string) {
   if (!dateStr || !dateStr.includes('-')) return dateStr;
-  const [year, month, day] = dateStr.split('-');
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const [year, month, day] = parts;
   return `${day}/${month}/${year}`;
 }
 

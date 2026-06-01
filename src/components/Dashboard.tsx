@@ -39,12 +39,19 @@ export default function Dashboard({
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
-  // Auto-switch to purchases if they have no customers but have purchases
+  // Auto-switch to Add New Customer if it's a new user (no customers)
+  // or switch to Purchases if they only have purchase data.
   useEffect(() => {
-    if (customers.length === 0 && purchaseData.length > 0) {
-      setActiveTab('purchases');
-    } else if (customers.length === 0 && activeTab === 'list') {
-      setActiveTab('add');
+    if (customers.length === 0) {
+      if (purchaseData.length > 0) {
+        setActiveTab('purchases');
+      } else {
+        setActiveTab('add');
+      }
+    } else if (activeTab === 'add' && customers.length > 0) {
+      // If we were on 'add' because it was empty, but now there are customers, 
+      // we don't automatically jump away while they might be adding another, 
+      // but on initial mount 'list' is the default if customers.length > 0.
     }
   }, [customers.length, purchaseData.length]);
 
@@ -124,13 +131,13 @@ export default function Dashboard({
           onClick={() => setActiveTab('list')} 
           className={cn("flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition-all text-xs sm:text-sm", activeTab === 'list' ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:bg-background/50")}
         >
-          <Users className="h-4 w-4" /> My Clients
+          <Users className="h-4 w-4" /> Your Customer
         </button>
         <button 
           onClick={() => setActiveTab('add')} 
           className={cn("flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition-all text-xs sm:text-sm", activeTab === 'add' ? "bg-background text-primary shadow-sm" : "text-muted-foreground hover:bg-background/50")}
         >
-          <UserPlus className="h-4 w-4" /> New Client
+          <UserPlus className="h-4 w-4" /> Add New Customer
         </button>
         {purchaseData.length > 0 && (
           <button 
@@ -149,7 +156,7 @@ export default function Dashboard({
               <CardTitle className="flex items-center gap-2 font-black"><Users className="h-5 w-5 text-primary" /> ACTIVE CLIENT LIST</CardTitle>
               <div className="relative max-w-sm w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search client name..." className="pl-9 h-11" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                <Input placeholder="Search customer name..." className="pl-9 h-11" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
               </div>
             </div>
           </CardHeader>
@@ -158,7 +165,7 @@ export default function Dashboard({
               {filteredCustomers.length === 0 ? (
                 <div className="py-20 text-center space-y-3">
                   <div className="bg-muted w-16 h-16 rounded-full flex items-center justify-center mx-auto"><Users className="h-8 w-8 text-muted-foreground" /></div>
-                  <p className="text-muted-foreground font-medium">{searchTerm ? "No match found." : "Your client list is empty."}</p>
+                  <p className="text-muted-foreground font-medium">{searchTerm ? "No match found." : "Your customer list is empty."}</p>
                 </div>
               ) : (
                 filteredCustomers.map(c => (
@@ -195,7 +202,7 @@ export default function Dashboard({
           <CardContent className="pt-6">
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="customer-name" className="text-sm font-bold">Client Full Name *</Label>
+                <Label htmlFor="customer-name" className="text-sm font-bold">Customer Full Name *</Label>
                 <Input id="customer-name" placeholder="e.g. Rahul Sharma" value={name} onChange={(e) => setName(e.target.value)} className="h-12 text-lg" required />
               </div>
               <div className="space-y-2">
@@ -208,7 +215,7 @@ export default function Dashboard({
               </div>
               <div className="md:col-span-2 pt-4">
                 <Button type="submit" className="w-full h-14 text-xl font-black shadow-lg shadow-primary/20">
-                  Register Client Identity
+                  Register Customer Identity
                 </Button>
               </div>
             </form>
@@ -224,7 +231,7 @@ export default function Dashboard({
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Edit Client Identity</DialogTitle>
+            <DialogTitle>Edit Customer Identity</DialogTitle>
           </DialogHeader>
           {editingCustomer && (
             <div className="grid gap-4 py-4">
