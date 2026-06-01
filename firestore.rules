@@ -1,9 +1,27 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Standard per-user security
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Cross-user read permission for Customers
+    // Allow a customer to read the Owner's profile/settings if they have entries together
+    match /users/{ownerId}/profile/data {
+      allow read: if request.auth != null;
+    }
+    match /users/{ownerId}/settings/config {
+      allow read: if request.auth != null;
+    }
+    
+    // CRITICAL: Collection Group Rule for Customer Portal
+    // Allow users to query all 'entries' documents across the DB 
+    // IF the customerPhoneNumber matches their verified Auth number
+    match /{path=**}/entries/{entryId} {
+      allow read: if request.auth != null && 
+                  request.auth.token.phone_number != null &&
+                  resource.data.customerPhoneNumber == request.auth.token.phone_number;
     }
   }
 }
