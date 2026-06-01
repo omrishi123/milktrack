@@ -136,7 +136,7 @@ export default function AuthPage() {
       let message = error.message || "Could not send OTP.";
       
       if (error.code === 'auth/captcha-check-failed' || error.message?.includes('Hostname')) {
-        message = "Domain not authorized. Go to Firebase Console > Auth > Settings and add this domain to 'Authorized Domains'.";
+        message = "Domain not authorized. Please check your Firebase Console settings.";
       } else if (error.code === 'auth/invalid-phone-number') {
         message = "The phone number is invalid. Please use 10 digits.";
       }
@@ -288,12 +288,6 @@ export default function AuthPage() {
                       <span className="flex items-center gap-2">Send OTP <ArrowRight className="h-4 w-4" /></span>
                     )}
                   </Button>
-                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex gap-3 items-start border border-blue-100 dark:border-blue-800">
-                    <AlertCircle className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-                    <p className="text-[10px] text-blue-700 dark:text-blue-300">
-                      <strong>Note:</strong> Ensure your website URL is added to "Authorized Domains" in the Firebase Console to enable OTP login.
-                    </p>
-                  </div>
                 </form>
               ) : (
                 <form onSubmit={handleVerifyOtp} className="space-y-4">
