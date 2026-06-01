@@ -145,7 +145,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     if (!printAreaRef.current) return null;
     
     const originalStyle = printAreaRef.current.style.cssText;
-    // Force visibility and set fixed width for consistent capture
+    // Force visibility and set fixed width for consistent capture (Solves half-page bug)
     printAreaRef.current.style.cssText = "display: block !important; position: fixed; left: -9999px; top: 0; width: 800px; background: white; visibility: visible !important; color: black !important; padding: 40px;";
     
     try {
@@ -186,24 +186,24 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       if (!blob) throw new Error("Could not generate PDF");
 
       if (navigator.share) {
-        const file = new File([blob], 'Milk_Bill.pdf', { type: 'application/pdf' });
-        if (navigator.canShare({ files: [file] })) {
+        const file = new File([blob], `Milk_Bill_${customer.name}.pdf`, { type: 'application/pdf' });
+        try {
           await navigator.share({
             files: [file],
             title: 'Milk Bill',
             text: `Invoice for ${customer.name}`
           });
-        } else {
-          handleDownloadPdf();
+        } catch (shareErr: any) {
+          if (shareErr.name !== 'AbortError') {
+            handleDownloadPdf();
+          }
         }
       } else {
         handleDownloadPdf();
       }
     } catch (err: any) {
       setIsGeneratingPdf(false);
-      if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
-        toast({ title: "Sharing Failed", description: "Try downloading instead.", variant: "destructive" });
-      }
+      toast({ title: "Sharing Failed", description: "Try downloading instead.", variant: "destructive" });
     }
   };
 
@@ -244,24 +244,24 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
           <ChevronLeft className="h-4 w-4" /> Dashboard
         </Button>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={handleSyncForPortal} disabled={isSyncing} className="gap-2 border-primary text-primary">
+          <Button variant="outline" size="sm" onClick={handleSyncForPortal} disabled={isSyncing} className="gap-2 border-primary text-primary font-bold">
             {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Sync for Portal
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowBillFilters(!showBillFilters)} className="gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowBillFilters(!showBillFilters)} className="gap-2 font-bold">
             <Filter className="h-4 w-4" /> Filter Bill
           </Button>
-          <Button variant="default" size="sm" onClick={handleShareTextSummary} className="gap-2 bg-emerald-500">
+          <Button variant="default" size="sm" onClick={handleShareTextSummary} className="gap-2 bg-emerald-500 font-bold hover:bg-emerald-600">
             <Send className="h-4 w-4" /> Share Text Summary
           </Button>
-          <Button variant="default" size="sm" onClick={handleSharePdf} disabled={isGeneratingPdf} className="gap-2 bg-emerald-600">
+          <Button variant="default" size="sm" onClick={handleSharePdf} disabled={isGeneratingPdf} className="gap-2 bg-emerald-600 font-bold hover:bg-emerald-700">
             {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
             Share PDF
           </Button>
-          <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={isGeneratingPdf} className="gap-2">
+          <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={isGeneratingPdf} className="gap-2 font-bold">
             <Download className="h-4 w-4" /> Download PDF
           </Button>
-          <Button variant="default" size="sm" onClick={() => window.print()} className="gap-2 bg-primary">
+          <Button variant="default" size="sm" onClick={() => window.print()} className="gap-2 bg-primary font-bold">
             <Printer className="h-4 w-4" /> Professional Print
           </Button>
         </div>

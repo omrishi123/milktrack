@@ -53,7 +53,7 @@ export default function PaymentForm({ customerName, onMarkPaid }: PaymentFormPro
               required
             />
           </div>
-          <Button type="submit" variant="default" className="md:col-span-2 w-full bg-emerald-600 hover:bg-emerald-700 h-12 text-lg">
+          <Button type="submit" variant="default" className="md:col-span-2 w-full bg-emerald-600 hover:bg-emerald-700 h-12 text-lg font-bold">
             <CheckCircle2 className="mr-2 h-5 w-5" /> Mark as Paid
           </Button>
         </form>

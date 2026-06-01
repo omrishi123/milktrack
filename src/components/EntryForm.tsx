@@ -94,7 +94,7 @@ export default function EntryForm({ customerName, defaultPrice, onAdd }: EntryFo
               required
             />
           </div>
-          <Button type="submit" className="md:col-span-2 w-full h-12 text-lg">
+          <Button type="submit" className="md:col-span-2 w-full h-12 text-lg font-bold">
             Record Delivery
           </Button>
         </form>

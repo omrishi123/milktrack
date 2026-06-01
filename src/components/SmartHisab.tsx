@@ -133,7 +133,7 @@ export default function SmartHisab({ customerName, phoneNumber, entries, sellerN
             <Button 
               size="sm" 
               onClick={handleShareHisab} 
-              className="bg-emerald-600 hover:bg-emerald-700 gap-2"
+              className="bg-emerald-600 hover:bg-emerald-700 gap-2 font-bold"
               disabled={stats.entryCount === 0}
             >
               <MessageCircle className="h-4 w-4" /> Share on WhatsApp
