@@ -19,7 +19,8 @@ import {
   Printer,
   Filter,
   ArrowRight,
-  FileText
+  FileText,
+  Loader2
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { formatDate } from '@/lib/utils';
@@ -114,6 +115,7 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
     const element = printAreaRef.current;
     const originalStyle = element.style.cssText;
     
+    // High-precision capture setup
     element.style.cssText = `
       display: block !important;
       visibility: visible !important;
@@ -138,11 +140,26 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
         height: element.scrollHeight,
         windowWidth: 800
       });
+      
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = 210;
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      
+      const pageHeight = 297;
+      let heightLeft = pdfHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+      }
+      
       return pdf.output('blob');
     } catch (err) {
       console.error("PDF generation failed:", err);
@@ -160,7 +177,7 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Milk_Bill_${ownerSettings?.sellerName || 'Dairy'}.pdf`;
+      link.download = `Milk_Bill_${ownerSettings?.sellerName || ownerProfile?.displayName || 'Dairy'}.pdf`;
       link.click();
       URL.revokeObjectURL(url);
     }
@@ -176,7 +193,7 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
         await navigator.share({
           files: [file],
           title: 'Milk Bill',
-          text: `Payment due for ${ownerSettings?.sellerName || 'Milk Dairy'}`
+          text: `Payment due for ${ownerSettings?.sellerName || ownerProfile?.displayName || 'Milk Dairy'}`
         });
       } catch (err) {
         handleDownloadPdf();
@@ -188,7 +205,7 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
 
   return (
     <div className="space-y-6">
-      <div className="border-b pb-4 flex flex-wrap justify-between items-end gap-4">
+      <div className="border-b pb-4 flex flex-wrap justify-between items-end gap-4 no-print">
         <div>
           <h2 className="text-2xl font-black text-primary uppercase">
             {ownerSettings?.sellerName || ownerProfile?.displayName || 'Active Dairy'}
@@ -209,11 +226,14 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
           <Button variant="default" size="sm" onClick={handleSharePdf} disabled={isGenerating} className="bg-emerald-600 font-black gap-2">
             <Share2 className="h-4 w-4" /> Share
           </Button>
+          <Button variant="default" size="sm" onClick={() => window.print()} className="bg-primary font-black gap-2">
+            <Printer className="h-4 w-4" /> Professional Print
+          </Button>
         </div>
       </div>
 
       {showFilters && (
-        <div className="p-4 bg-muted/50 border rounded-xl grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in slide-in-from-top-2">
+        <div className="no-print p-4 bg-muted/50 border rounded-xl grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in slide-in-from-top-2">
           <div className="space-y-1">
             <Label className="text-[10px] font-black uppercase">Start Date</Label>
             <Input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)} className="h-10 font-bold" />
@@ -233,7 +253,7 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 no-print">
         <Card className="bg-primary/5 border-primary/20 shadow-none">
           <CardContent className="pt-6 flex flex-col items-center justify-center text-center">
             <Droplets className="h-6 w-6 text-primary mb-2" />
@@ -259,7 +279,7 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 no-print">
         <Card className="shadow-none border-dashed">
           <CardHeader className="bg-muted/30 border-b flex flex-row items-center justify-between">
             <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground">Delivery History</CardTitle>
@@ -324,7 +344,7 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
       </div>
 
       {/* Professional Bill Replication for Printing/Downloading */}
-      <div id="print-area" ref={printAreaRef} className="hidden font-sans text-black p-10 bg-white min-h-[1120px]">
+      <div id="print-area" ref={printAreaRef} className="hidden print:block font-sans text-black p-10 bg-white min-h-[1120px]">
         <div className="flex justify-between items-start border-b-2 border-black pb-6 mb-8">
           <div className="flex gap-4 items-center">
             {ownerProfile?.businessLogoBase64 ? (
@@ -427,24 +447,5 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
         </div>
       </div>
     </div>
-  );
-}
-
-function Loader2(props: any) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
   );
 }
