@@ -25,7 +25,9 @@ import {
   Filter,
   CheckCircle2,
   Clock,
-  RefreshCw
+  RefreshCw,
+  Share2,
+  MessageSquare
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '@/hooks/use-toast';
@@ -97,7 +99,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     };
     addDoc(ref, data)
       .then(() => {
-        toast({ title: "Delivery Saved", description: "The entry has been recorded and synced to the customer portal." });
+        toast({ title: "Delivery Saved", description: "The entry has been recorded and synced." });
       })
       .catch(async (err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -108,75 +110,35 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       });
   };
 
-  // Sync Old Entries for Customer Portal
   const handleSyncForPortal = async () => {
     if (!customer.phoneNumber) {
-      toast({ title: "Phone Missing", description: "Add a phone number to this customer first.", variant: "destructive" });
+      toast({ title: "Phone Missing", description: "Add a phone number first.", variant: "destructive" });
       return;
     }
-
     setIsSyncing(true);
     const cleanPhone = sanitizePhoneNumber(customer.phoneNumber);
     const batch = writeBatch(db);
     let count = 0;
-
     try {
-      // Find all entries for this customer that don't have the phone number attached
-      const q = query(
-        collection(db, 'users', userId, 'entries'), 
-        where('customerName', '==', customer.name)
-      );
+      const q = query(collection(db, 'users', userId, 'entries'), where('customerName', '==', customer.name));
       const snap = await getDocs(q);
-      
       snap.forEach(doc => {
-        const data = doc.data();
-        if (data.customerPhoneNumber !== cleanPhone) {
+        if (doc.data().customerPhoneNumber !== cleanPhone) {
           batch.update(doc.ref, { customerPhoneNumber: cleanPhone });
           count++;
         }
       });
-
       if (count > 0) {
         await batch.commit();
-        toast({ title: "Portal Synced", description: `Linked ${count} historical entries to ${cleanPhone}.` });
+        toast({ title: "Portal Synced", description: `Linked ${count} entries to ${cleanPhone}.` });
       } else {
-        toast({ title: "Already Synced", description: "All records are already linked to the portal." });
+        toast({ title: "Already Synced", description: "All records are already linked." });
       }
     } catch (err) {
-      console.error("Sync error:", err);
-      toast({ title: "Sync Failed", description: "Could not link records.", variant: "destructive" });
+      toast({ title: "Sync Failed", variant: "destructive" });
     } finally {
       setIsSyncing(false);
     }
-  };
-
-  const handleMarkPaid = async (fromDate: string, toDate: string) => {
-    const entriesToUpdate = entries.filter(e => e.date >= fromDate && e.date <= toDate && !e.paid);
-    if (entriesToUpdate.length === 0) {
-      toast({ title: "No Dues Found", description: "No unpaid entries in this range.", variant: "destructive" });
-      return;
-    }
-    const batch = writeBatch(db);
-    for (const entry of entriesToUpdate) {
-      if (!entry.id) continue;
-      const ref = doc(db, 'users', userId, 'entries', entry.id);
-      batch.update(ref, { paid: true });
-    }
-    await batch.commit();
-    toast({ title: "Payments Cleared", description: `Marked ${entriesToUpdate.length} entries as paid.` });
-    setActiveTab('history');
-  };
-
-  const setFilterSinceLastPaid = () => {
-    const paidEntries = entries.filter(e => e.paid).sort((a, b) => b.date.localeCompare(a.date));
-    if (paidEntries.length === 0) {
-      setBillFromDate('');
-      return;
-    }
-    const lastPaidDate = new Date(paidEntries[0].date);
-    lastPaidDate.setDate(lastPaidDate.getDate() + 1);
-    setBillFromDate(lastPaidDate.toISOString().split('T')[0]);
-    setBillToDate(new Date().toISOString().split('T')[0]);
   };
 
   const generatePdfBlob = async (): Promise<Blob | null> => {
@@ -196,18 +158,51 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     }
   };
 
-  const handleShareProfessional = async () => {
-    setIsGeneratingPdf(true);
-    const pdfBlob = await generatePdfBlob();
-    setIsGeneratingPdf(false);
+  const handleShareTextSummary = () => {
+    const text = `*🍼 MILK BILL SUMMARY*\n*Seller:* ${settings.sellerName || profile.displayName}\n*Customer:* ${customer.name}\n*Period:* ${billStats.dateRange}\n*Total Vol:* ${billStats.totalLiters.toFixed(2)} L\n*Total Due:* ₹${billStats.totalDue.toFixed(2)}`;
     const phone = customer.phoneNumber?.replace(/\D/g, '');
-    const text = `*🍼 MILK BILL*\n*Seller:* ${settings.sellerName || profile.displayName}\n*Customer:* ${customer.name}\n*Total Due:* ₹${billStats.totalDue.toFixed(2)}`;
-    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
-    if (pdfBlob && navigator.canShare && navigator.canShare({ files: [new File([pdfBlob], 'bill.pdf', { type: 'application/pdf' })] })) {
-      await navigator.share({ files: [new File([pdfBlob], 'bill.pdf', { type: 'application/pdf' })], title: 'Invoice', text });
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const handleSharePdf = async () => {
+    setIsGeneratingPdf(true);
+    const blob = await generatePdfBlob();
+    setIsGeneratingPdf(false);
+    if (blob && navigator.share && navigator.canShare({ files: [new File([blob], 'bill.pdf', { type: 'application/pdf' })] })) {
+      await navigator.share({
+        files: [new File([blob], 'bill.pdf', { type: 'application/pdf' })],
+        title: 'Milk Bill',
+      });
     } else {
-      window.open(waUrl, '_blank');
+      toast({ title: "Sharing not supported", description: "Download the PDF instead.", variant: "destructive" });
     }
+  };
+
+  const handleDownloadPdf = async () => {
+    setIsGeneratingPdf(true);
+    const blob = await generatePdfBlob();
+    setIsGeneratingPdf(false);
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Milk_Bill_${customer.name}_${new Date().toISOString().split('T')[0]}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const handleMarkPaid = async (fromDate: string, toDate: string) => {
+    const entriesToUpdate = entries.filter(e => e.date >= fromDate && e.date <= toDate && !e.paid);
+    if (entriesToUpdate.length === 0) return;
+    const batch = writeBatch(db);
+    for (const entry of entriesToUpdate) {
+      if (!entry.id) continue;
+      batch.update(doc(db, 'users', userId, 'entries', entry.id), { paid: true });
+    }
+    await batch.commit();
+    toast({ title: "Payments Cleared" });
+    setActiveTab('history');
   };
 
   return (
@@ -217,40 +212,37 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
           <ChevronLeft className="h-4 w-4" /> Dashboard
         </Button>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={handleSyncForPortal} disabled={isSyncing} className="gap-2 border-primary text-primary">
+          <Button variant="outline" size="sm" onClick={handleSyncForPortal} disabled={isSyncing} className="gap-2 border-primary text-primary">
             {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Sync for Portal
           </Button>
-          <Button variant="outline" onClick={() => setShowBillFilters(!showBillFilters)} className="gap-2">
-            <Filter className="h-4 w-4" /> Sorted Billing
+          <Button variant="outline" size="sm" onClick={() => setShowBillFilters(!showBillFilters)} className="gap-2">
+            <Filter className="h-4 w-4" /> Filter Bill
           </Button>
-          <Button variant="default" onClick={handleShareProfessional} disabled={isGeneratingPdf} className="gap-2 bg-emerald-600">
-            {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
-            Professional Share
+          <Button variant="default" size="sm" onClick={handleShareTextSummary} className="gap-2 bg-emerald-500">
+            <Send className="h-4 w-4" /> Share Text Summary
           </Button>
-          <Button variant="outline" onClick={() => window.print()} className="gap-2">
-            <Printer className="h-4 w-4" /> Print
+          <Button variant="default" size="sm" onClick={handleSharePdf} disabled={isGeneratingPdf} className="gap-2 bg-emerald-600">
+            {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+            Share PDF
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={isGeneratingPdf} className="gap-2">
+            <Download className="h-4 w-4" /> Download PDF
+          </Button>
+          <Button variant="default" size="sm" onClick={() => window.print()} className="gap-2 bg-primary">
+            <Printer className="h-4 w-4" /> Professional Print
           </Button>
         </div>
       </div>
 
       {showBillFilters && (
-        <div className="no-print p-4 bg-card border rounded-xl shadow-sm space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1">
-              <Label className="text-xs font-bold">Start Date</Label>
-              <Input type="date" value={billFromDate} onChange={e => setBillFromDate(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs font-bold">End Date</Label>
-              <Input type="date" value={billToDate} onChange={e => setBillToDate(e.target.value)} />
-            </div>
-            <div className="flex items-end pb-1 gap-2">
-              <Button size="sm" variant="secondary" onClick={setFilterSinceLastPaid} className="flex-1">Since Last Paid</Button>
-              <div className="flex items-center space-x-2 border rounded-md px-2 h-10 flex-1">
-                <Checkbox id="onlyUnpaid" checked={billOnlyUnpaid} onCheckedChange={(c) => setBillOnlyUnpaid(!!c)} />
-                <label htmlFor="onlyUnpaid" className="text-xs font-bold cursor-pointer">Unpaid Only</label>
-              </div>
+        <div className="no-print p-4 bg-card border rounded-xl shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-1"><Label className="text-xs font-bold">Start Date</Label><Input type="date" value={billFromDate} onChange={e => setBillFromDate(e.target.value)} /></div>
+          <div className="space-y-1"><Label className="text-xs font-bold">End Date</Label><Input type="date" value={billToDate} onChange={e => setBillToDate(e.target.value)} /></div>
+          <div className="flex items-end pb-1 gap-2">
+            <div className="flex items-center space-x-2 border rounded-md px-2 h-10 w-full">
+              <Checkbox id="onlyUnpaid" checked={billOnlyUnpaid} onCheckedChange={(c) => setBillOnlyUnpaid(!!c)} />
+              <label htmlFor="onlyUnpaid" className="text-xs font-bold cursor-pointer">Unpaid Only</label>
             </div>
           </div>
         </div>
@@ -265,30 +257,19 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       </div>
 
       <nav className="flex flex-wrap gap-2 p-1 bg-muted rounded-lg no-print">
-        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'entry' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('entry')}>New Entry</button>
-        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'history' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('history')}>Ledger</button>
-        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'hisab' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('hisab')}>Hisab</button>
-        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'payment' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('payment')}>Payment</button>
+        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'entry' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('entry')}>Add Entry</button>
+        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'history' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('history')}>History</button>
+        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'hisab' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('hisab')}>Smart Hisab</button>
+        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'payment' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('payment')}>Payments</button>
         <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'ai' ? 'bg-background shadow-sm text-amber-600' : 'text-muted-foreground'}`} onClick={() => setActiveTab('ai')}>AI Analysis</button>
       </nav>
 
-      <div className={`${activeTab === 'entry' ? '' : 'hidden'} no-print`}>
-        <EntryForm customerName={customer.name} defaultPrice={settings.defaultPrice} onAdd={handleAddEntry} />
-      </div>
-      <div className={`${activeTab === 'hisab' ? '' : 'hidden'} no-print`}>
-        <SmartHisab customerName={customer.name} phoneNumber={customer.phoneNumber} entries={entries} sellerName={settings.sellerName || profile.displayName || 'Dairy Ledger'} />
-      </div>
-      <div className={`${activeTab === 'payment' ? '' : 'hidden'} no-print`}>
-        <PaymentForm customerName={customer.name} onMarkPaid={handleMarkPaid} />
-      </div>
-      <div className={`${activeTab === 'history' ? '' : 'hidden'} no-print`}>
-        <HistoryTable entries={entries} db={db} userId={userId} customerName={customer.name} />
-      </div>
-      <div className={`${activeTab === 'ai' ? '' : 'hidden'} no-print`}>
-        <AiInsights customerName={customer.name} entries={entries} />
-      </div>
+      <div className={`${activeTab === 'entry' ? '' : 'hidden'} no-print`}><EntryForm customerName={customer.name} defaultPrice={settings.defaultPrice} onAdd={handleAddEntry} /></div>
+      <div className={`${activeTab === 'history' ? '' : 'hidden'} no-print`}><HistoryTable entries={entries} db={db} userId={userId} customerName={customer.name} /></div>
+      <div className={`${activeTab === 'hisab' ? '' : 'hidden'} no-print`}><SmartHisab customerName={customer.name} phoneNumber={customer.phoneNumber} entries={entries} sellerName={settings.sellerName || profile.displayName || 'Dairy Ledger'} /></div>
+      <div className={`${activeTab === 'payment' ? '' : 'hidden'} no-print`}><PaymentForm customerName={customer.name} onMarkPaid={handleMarkPaid} /></div>
+      <div className={`${activeTab === 'ai' ? '' : 'hidden'} no-print`}><AiInsights customerName={customer.name} entries={entries} /></div>
 
-      {/* PROFESSIONAL PRINT AREA */}
       <div id="print-area" ref={printAreaRef} className="hidden print:block font-serif text-black p-8 bg-white border">
         <div className="flex justify-between items-start border-b-4 border-black pb-4 mb-6">
           <div>
@@ -301,13 +282,11 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
             <p className="text-sm font-bold mt-2">Date: {formatDate(new Date().toISOString().split('T')[0])}</p>
           </div>
         </div>
-        
         <div className="mb-8">
           <h3 className="text-xs font-black uppercase text-gray-500 mb-1">BILL TO:</h3>
           <p className="text-xl font-black uppercase">{customer.name}</p>
           {customer.address && <p className="text-sm">{customer.address}</p>}
         </div>
-
         <table className="w-full text-sm mb-8 border-collapse">
           <thead>
             <tr className="border-y-2 border-black bg-gray-50">
@@ -316,7 +295,6 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
               <th className="py-2 text-right px-2">QTY (L)</th>
               <th className="py-2 text-right px-2">RATE</th>
               <th className="py-2 text-right px-2 font-black">TOTAL</th>
-              <th className="py-2 text-center px-2">STATUS</th>
             </tr>
           </thead>
           <tbody className="divide-y border-b-2 border-black">
@@ -327,12 +305,10 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
                 <td className="py-2 px-2 text-right">{e.milkQuantity.toFixed(2)}</td>
                 <td className="py-2 px-2 text-right">₹{e.price.toFixed(2)}</td>
                 <td className="py-2 px-2 text-right font-bold">₹{e.total.toFixed(2)}</td>
-                <td className={`py-2 px-2 text-center font-black text-[10px] ${e.paid ? 'text-emerald-700' : 'text-red-700'}`}>{e.paid ? 'PAID' : 'DUE'}</td>
               </tr>
             ))}
           </tbody>
         </table>
-
         <div className="flex justify-between items-start gap-12">
           <div>
             {upiUri && (
