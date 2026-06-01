@@ -10,12 +10,31 @@ import PaymentForm from './PaymentForm';
 import AiInsights from './AiInsights';
 import SmartHisab from './SmartHisab';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Printer, Download, Sparkles, Phone, MapPin, Loader2, FileText, Send, Droplets, Calculator } from 'lucide-react';
+import { 
+  ChevronLeft, 
+  Printer, 
+  Download, 
+  Sparkles, 
+  Phone, 
+  MapPin, 
+  Loader2, 
+  FileText, 
+  Send, 
+  Droplets, 
+  Calculator, 
+  Calendar as CalendarIcon,
+  Filter,
+  CheckCircle2,
+  Clock
+} from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '@/hooks/use-toast';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { formatDate } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface CustomerDetailProps {
   customer: Customer;
@@ -30,22 +49,37 @@ interface CustomerDetailProps {
 export default function CustomerDetail({ customer, entries, settings, profile, onBack, db, userId }: CustomerDetailProps) {
   const [activeTab, setActiveTab] = useState<'entry' | 'history' | 'payment' | 'ai' | 'hisab'>('entry');
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [showBillFilters, setShowBillFilters] = useState(false);
+  
+  // Billing Filters
+  const [billFromDate, setBillFromDate] = useState('');
+  const [billToDate, setBillToDate] = useState('');
+  const [billOnlyUnpaid, setBillOnlyUnpaid] = useState(false);
+
   const printAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
+  const filteredEntriesForBill = useMemo(() => {
+    return entries.filter(e => {
+      const dateMatch = (!billFromDate || e.date >= billFromDate) && (!billToDate || e.date <= billToDate);
+      const paidMatch = billOnlyUnpaid ? !e.paid : true;
+      return dateMatch && paidMatch;
+    }).sort((a, b) => a.date.localeCompare(b.date));
+  }, [entries, billFromDate, billToDate, billOnlyUnpaid]);
+
   const billStats = useMemo(() => {
-    const totalLiters = entries.reduce((sum, e) => sum + e.milkQuantity, 0);
-    const totalAmount = entries.reduce((sum, e) => sum + e.total, 0);
-    const totalPaid = entries.filter(e => e.paid).reduce((sum, e) => sum + e.total, 0);
-    const totalDue = entries.filter(e => !e.paid).reduce((sum, e) => sum + e.total, 0);
+    const totalLiters = filteredEntriesForBill.reduce((sum, e) => sum + e.milkQuantity, 0);
+    const totalAmount = filteredEntriesForBill.reduce((sum, e) => sum + e.total, 0);
+    const totalPaid = filteredEntriesForBill.filter(e => e.paid).reduce((sum, e) => sum + e.total, 0);
+    const totalDue = filteredEntriesForBill.filter(e => !e.paid).reduce((sum, e) => sum + e.total, 0);
     
-    const sortedDates = [...entries].map(e => e.date).sort();
+    const sortedDates = [...filteredEntriesForBill].map(e => e.date).sort();
     const dateRange = sortedDates.length > 0 
       ? `${formatDate(sortedDates[0])} to ${formatDate(sortedDates[sortedDates.length - 1])}`
-      : 'No entries';
+      : 'No entries in range';
 
     return { totalLiters, totalAmount, totalPaid, totalDue, dateRange };
-  }, [entries]);
+  }, [filteredEntriesForBill]);
 
   const upiUri = useMemo(() => {
     if (!profile.upiId || billStats.totalDue <= 0) return null;
@@ -91,6 +125,21 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     setActiveTab('history');
   };
 
+  const setFilterSinceLastPaid = () => {
+    const paidEntries = entries.filter(e => e.paid).sort((a, b) => b.date.localeCompare(a.date));
+    if (paidEntries.length === 0) {
+      setBillFromDate('');
+      toast({ title: "No Payments Found", description: "Showing all history as no paid entries exist." });
+      return;
+    }
+    const lastPaidDate = new Date(paidEntries[0].date);
+    lastPaidDate.setDate(lastPaidDate.getDate() + 1);
+    setBillFromDate(lastPaidDate.toISOString().split('T')[0]);
+    setBillToDate(new Date().toISOString().split('T')[0]);
+    setBillOnlyUnpaid(false);
+    toast({ title: "Filter Applied", description: `Showing entries since last payment (${formatDate(paidEntries[0].date)})` });
+  };
+
   const generatePdfBlob = async (): Promise<Blob | null> => {
     if (!printAreaRef.current) return null;
     
@@ -134,6 +183,10 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
   };
 
   const handleDownloadPdf = async () => {
+    if (filteredEntriesForBill.length === 0) {
+      toast({ title: "Empty Bill", description: "No entries match your current filters.", variant: "destructive" });
+      return;
+    }
     setIsGeneratingPdf(true);
     const pdfBlob = await generatePdfBlob();
     setIsGeneratingPdf(false);
@@ -166,6 +219,10 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
   };
 
   const handleShareTextOnly = () => {
+    if (filteredEntriesForBill.length === 0) {
+      toast({ title: "Empty Bill", description: "No entries match your current filters.", variant: "destructive" });
+      return;
+    }
     const billText = getBillText();
     const phone = customer.phoneNumber?.replace(/\D/g, '');
     const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(billText)}`;
@@ -173,6 +230,10 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
   };
 
   const handleShareProfessional = async () => {
+    if (filteredEntriesForBill.length === 0) {
+      toast({ title: "Empty Bill", description: "No entries match your current filters.", variant: "destructive" });
+      return;
+    }
     setIsGeneratingPdf(true);
     const pdfBlob = await generatePdfBlob();
     setIsGeneratingPdf(false);
@@ -215,6 +276,13 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
         </Button>
         <div className="flex flex-wrap gap-2">
           <Button 
+            variant="outline" 
+            onClick={() => setShowBillFilters(!showBillFilters)} 
+            className={`gap-2 ${showBillFilters ? 'bg-primary/10 border-primary' : ''}`}
+          >
+            <Filter className="h-4 w-4" /> {showBillFilters ? 'Hide Filters' : 'Filter Bill'}
+          </Button>
+          <Button 
             variant="default" 
             onClick={handleShareTextOnly} 
             className="gap-2 bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm"
@@ -245,6 +313,62 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
           </Button>
         </div>
       </div>
+
+      {/* Sorted Billing Filter UI */}
+      {showBillFilters && (
+        <div className="no-print p-4 bg-card border rounded-xl shadow-sm space-y-4 animate-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-2 mb-2">
+            <Filter className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-bold uppercase">Invoice Customization</h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="billFrom" className="text-xs font-semibold">From Date</Label>
+              <Input 
+                id="billFrom" 
+                type="date" 
+                value={billFromDate} 
+                onChange={e => setBillFromDate(e.target.value)} 
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="billTo" className="text-xs font-semibold">To Date</Label>
+              <Input 
+                id="billTo" 
+                type="date" 
+                value={billToDate} 
+                onChange={e => setBillToDate(e.target.value)} 
+                className="h-9"
+              />
+            </div>
+            <div className="flex items-end pb-1 gap-2">
+              <div className="flex items-center space-x-2 bg-muted/50 p-2 rounded-lg border flex-1 h-9">
+                <Checkbox 
+                  id="onlyUnpaid" 
+                  checked={billOnlyUnpaid} 
+                  onCheckedChange={(checked) => setBillOnlyUnpaid(!!checked)} 
+                />
+                <label htmlFor="onlyUnpaid" className="text-xs font-bold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+                  Unpaid Only
+                </label>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 pt-2">
+            <Button size="sm" variant="secondary" onClick={setFilterSinceLastPaid} className="gap-2 text-xs font-bold">
+              <Clock className="h-3.5 w-3.5" /> Since Last Payment
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => { setBillFromDate(''); setBillToDate(''); setBillOnlyUnpaid(false); }} className="text-xs">
+              Clear All Filters
+            </Button>
+            <div className="ml-auto flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> 
+              {filteredEntriesForBill.length} Entries Selected
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="text-center no-print">
         <h2 className="text-3xl font-bold text-[var(--heading-color)] mb-1">{customer.name}</h2>
@@ -330,22 +454,28 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {entries.sort((a,b) => a.date.localeCompare(b.date)).map(e => (
-              <tr key={e.id} className="align-top">
-                <td className="py-3 px-2">{formatDate(e.date)}</td>
-                <td className="py-3 px-2 font-medium">{e.timeOfDay}</td>
-                <td className="py-3 px-2 text-right">{e.milkQuantity.toFixed(2)}</td>
-                <td className="py-3 px-2 text-right">{e.price.toFixed(2)}</td>
-                <td className="py-3 px-2 text-right font-bold">₹{e.total.toFixed(2)}</td>
-                <td className="py-3 px-2 text-center align-middle">
-                  <div className="flex justify-center items-center h-full">
-                    <span className={`text-[10px] px-1.5 py-0.5 font-black uppercase leading-none inline-block ${e.paid ? 'text-green-700' : 'text-red-700'}`}>
-                      {e.paid ? 'PAID' : 'DUE'}
-                    </span>
-                  </div>
-                </td>
+            {filteredEntriesForBill.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="py-10 text-center text-gray-400 italic">No entries selected for this period</td>
               </tr>
-            ))}
+            ) : (
+              filteredEntriesForBill.map(e => (
+                <tr key={e.id} className="align-top">
+                  <td className="py-3 px-2">{formatDate(e.date)}</td>
+                  <td className="py-3 px-2 font-medium">{e.timeOfDay}</td>
+                  <td className="py-3 px-2 text-right">{e.milkQuantity.toFixed(2)}</td>
+                  <td className="py-3 px-2 text-right">{e.price.toFixed(2)}</td>
+                  <td className="py-3 px-2 text-right font-bold">₹{e.total.toFixed(2)}</td>
+                  <td className="py-3 px-2 text-center align-middle">
+                    <div className="flex justify-center items-center h-full">
+                      <span className={`text-[10px] px-1.5 py-0.5 font-black uppercase leading-none inline-block ${e.paid ? 'text-green-700' : 'text-red-700'}`}>
+                        {e.paid ? 'PAID' : 'DUE'}
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
 
