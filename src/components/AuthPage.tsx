@@ -1,28 +1,44 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   GoogleAuthProvider, 
   signInWithPopup,
-  sendPasswordResetEmail 
+  sendPasswordResetEmail,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  ConfirmationResult
 } from 'firebase/auth';
 import { useAuth } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Droplets, Mail, Lock, AlertCircle } from 'lucide-react';
+import { Loader2, Droplets, Mail, Lock, Phone, MessageSquare, ArrowRight, ChevronLeft } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function AuthPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otp, setOtp] = useState('');
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [showOtpInput, setShowOtpInput] = useState(false);
   const { toast } = useToast();
   const auth = useAuth();
+  const recaptchaRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Reset OTP state when switching tabs or views
+    if (!showOtpInput) {
+      setOtp('');
+    }
+  }, [showOtpInput]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,10 +90,80 @@ export default function AuthPage() {
     }
   };
 
+  const setupRecaptcha = () => {
+    if ((window as any).recaptchaVerifier) return (window as any).recaptchaVerifier;
+    
+    const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      size: 'invisible',
+      callback: () => {
+        // reCAPTCHA solved
+      }
+    });
+    (window as any).recaptchaVerifier = verifier;
+    return verifier;
+  };
+
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phoneNumber) {
+      toast({ title: "Phone Required", description: "Please enter your mobile number.", variant: "destructive" });
+      return;
+    }
+
+    // Format phone number for India if no country code provided
+    let formattedPhone = phoneNumber.trim();
+    if (!formattedPhone.startsWith('+')) {
+      formattedPhone = `+91${formattedPhone.replace(/\D/g, '')}`;
+    }
+
+    setIsLoading(true);
+    try {
+      const verifier = setupRecaptcha();
+      const result = await signInWithPhoneNumber(auth, formattedPhone, verifier);
+      setConfirmationResult(result);
+      setShowOtpInput(true);
+      toast({ title: "OTP Sent", description: `Verification code sent to ${formattedPhone}` });
+    } catch (error: any) {
+      console.error("Phone Auth Error:", error);
+      toast({ 
+        title: "OTP Failed", 
+        description: error.message || "Could not send OTP. Ensure your number is correct.", 
+        variant: "destructive" 
+      });
+      // Reset reCAPTCHA if it failed
+      if ((window as any).recaptchaVerifier) {
+        (window as any).recaptchaVerifier.render().then((widgetId: any) => {
+          (window as any).recaptchaVerifier.reset(widgetId);
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otp || !confirmationResult) return;
+
+    setIsLoading(true);
+    try {
+      await confirmationResult.confirm(otp);
+      toast({ title: "Success", description: "Logged in successfully via Phone!" });
+    } catch (error: any) {
+      console.error("OTP Verification Error:", error);
+      toast({ 
+        title: "Verification Failed", 
+        description: "Invalid OTP. Please check the code and try again.", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     const provider = new GoogleAuthProvider();
-    // Force select account to prevent silent failures on some browsers
     provider.setCustomParameters({ prompt: 'select_account' });
     
     try {
@@ -90,12 +176,11 @@ export default function AuthPage() {
       if (error.code !== 'auth/popup-closed-by-user') {
         toast({ 
           title: "Google Sign In Error", 
-          description: error.message || "Failed to sign in with Google. Ensure authorized domains are set in Firebase Console.", 
+          description: error.message || "Failed to sign in with Google.", 
           variant: "destructive" 
         });
       }
     } finally {
-      // Small delay to allow onAuthStateChanged to pick up the user before turning off spinner
       setTimeout(() => setIsLoading(false), 500);
     }
   };
@@ -130,6 +215,8 @@ export default function AuthPage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-[var(--bg-color)] p-4">
+      <div id="recaptcha-container"></div>
+      
       <Card className="w-full max-w-md shadow-2xl border-primary/10 overflow-hidden">
         <div className="h-2 bg-primary"></div>
         <CardHeader className="space-y-1">
@@ -142,60 +229,163 @@ export default function AuthPage() {
             Milk Tracker Pro
           </CardTitle>
           <CardDescription className="text-center text-base">
-            {isLogin ? 'Welcome back! Please sign in' : 'Create an account to get started'}
+            Manage your daily milk records with ease
           </CardDescription>
         </CardHeader>
+        
         <CardContent className="space-y-4">
-          <form onSubmit={handleAuth} className="space-y-4">
-            <div className="space-y-2">
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="email"
-                  placeholder="Email Address"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="pl-10 h-12"
-                  disabled={isLoading}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required={!isResetting}
-                  className="pl-10 h-12"
-                  disabled={isLoading}
-                />
-              </div>
-              {isLogin && (
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={handleForgotPassword}
-                    disabled={isResetting || isLoading}
-                    className="text-xs text-primary font-bold hover:underline disabled:opacity-50 flex items-center gap-1"
-                  >
-                    {isResetting && <Loader2 className="h-3 w-3 animate-spin" />}
-                    Forgot password?
-                  </button>
+          <Tabs defaultValue="email" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="email" className="font-bold">Email</TabsTrigger>
+              <TabsTrigger value="phone" className="font-bold">Phone (OTP)</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="email" className="space-y-4">
+              <form onSubmit={handleAuth} className="space-y-4">
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="email"
+                      placeholder="Email Address"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="pl-10 h-12"
+                      disabled={isLoading}
+                    />
+                  </div>
                 </div>
-              )}
-            </div>
-            <Button type="submit" className="w-full btn-primary h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isLoading}>
-              {isLoading ? (
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="password"
+                      placeholder="Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required={!isResetting}
+                      className="pl-10 h-12"
+                      disabled={isLoading}
+                    />
+                  </div>
+                  {isLogin && (
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleForgotPassword}
+                        disabled={isResetting || isLoading}
+                        className="text-xs text-primary font-bold hover:underline disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {isResetting && <Loader2 className="h-3 w-3 animate-spin" />}
+                        Forgot password?
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <Button type="submit" className="w-full btn-primary h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isLoading}>
+                  {isLoading ? (
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  ) : (
+                    isLogin ? 'Sign In' : 'Create Account'
+                  )}
+                </Button>
+              </form>
+              
+              <div className="pt-2 text-center text-sm">
+                {isLogin ? (
+                  <p>
+                    Don't have an account?{' '}
+                    <button
+                      onClick={() => setIsLogin(false)}
+                      disabled={isLoading}
+                      className="text-primary font-black hover:underline disabled:opacity-50"
+                    >
+                      Sign Up
+                    </button>
+                  </p>
+                ) : (
+                  <p>
+                    Already have an account?{' '}
+                    <button
+                      onClick={() => setIsLogin(true)}
+                      disabled={isLoading}
+                      className="text-primary font-black hover:underline disabled:opacity-50"
+                    >
+                      Log In
+                    </button>
+                  </p>
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="phone" className="space-y-4">
+              {!showOtpInput ? (
+                <form onSubmit={handleSendOtp} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="phoneNumber" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Mobile Number</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="phoneNumber"
+                        type="tel"
+                        placeholder="e.g. 9876543210"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        required
+                        className="pl-10 h-12"
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground italic">Code +91 will be added automatically for India.</p>
+                  </div>
+                  <Button type="submit" className="w-full btn-primary h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isLoading}>
+                    {isLoading ? (
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    ) : (
+                      <span className="flex items-center gap-2">Send OTP <ArrowRight className="h-4 w-4" /></span>
+                    )}
+                  </Button>
+                </form>
               ) : (
-                isLogin ? 'Sign In' : 'Create Account'
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor="otp" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Enter 6-Digit Code</Label>
+                      <button 
+                        type="button" 
+                        onClick={() => setShowOtpInput(false)}
+                        className="text-[10px] font-bold text-primary flex items-center gap-1 hover:underline"
+                      >
+                        <ChevronLeft className="h-3 w-3" /> Change Number
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="otp"
+                        type="text"
+                        placeholder="000000"
+                        maxLength={6}
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                        required
+                        className="pl-10 h-12 text-center text-xl tracking-[0.5em] font-black"
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-lg font-bold shadow-lg shadow-emerald-500/20" disabled={isLoading || otp.length !== 6}>
+                    {isLoading ? (
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    ) : (
+                      'Verify & Login'
+                    )}
+                  </Button>
+                </form>
               )}
-            </Button>
-          </form>
+            </TabsContent>
+          </Tabs>
           
           <div className="relative py-2">
             <div className="absolute inset-0 flex items-center">
@@ -233,39 +423,8 @@ export default function AuthPage() {
               </>
             )}
           </Button>
-          
-          <div className="pt-2 text-center text-sm">
-            {isLogin ? (
-              <p>
-                Don't have an account?{' '}
-                <button
-                  onClick={() => setIsLogin(false)}
-                  disabled={isLoading}
-                  className="text-primary font-black hover:underline disabled:opacity-50"
-                >
-                  Sign Up
-                </button>
-              </p>
-            ) : (
-              <p>
-                Already have an account?{' '}
-                <button
-                  onClick={() => setIsLogin(true)}
-                  disabled={isLoading}
-                  className="text-primary font-black hover:underline disabled:opacity-50"
-                >
-                  Log In
-                </button>
-              </p>
-            )}
-          </div>
         </CardContent>
       </Card>
-      
-      {/* Hidden disclaimer about authorized domains for developer context */}
-      <div className="fixed bottom-4 left-4 text-[10px] text-muted-foreground opacity-20 hover:opacity-100 transition-opacity">
-        Tip: Google Sign-in requires authorized domains in Firebase Console.
-      </div>
     </div>
   );
 }
