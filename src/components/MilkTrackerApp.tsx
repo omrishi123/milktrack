@@ -51,8 +51,9 @@ export default function MilkTrackerApp() {
   
   const profile = useMemo(() => {
     return {
-      email: user?.email || user?.phoneNumber || '',
+      email: user?.email || '',
       displayName: user?.displayName || '',
+      mobileNumber: user?.phoneNumber || '',
       ...profileData
     };
   }, [user, profileData]);
@@ -163,7 +164,7 @@ export default function MilkTrackerApp() {
         errorEmitter.emit('permission-error', permissionError);
         toast({ 
           title: "Save Failed", 
-          description: "Could not save profile. The image might be too large.", 
+          description: "Could not save profile.", 
           variant: "destructive" 
         });
       });
@@ -217,7 +218,7 @@ export default function MilkTrackerApp() {
               </AvatarFallback>
             </Avatar>
             <span className="text-sm font-medium hidden sm:inline-block max-w-[100px] truncate">
-              {profile.displayName || profile.email || 'Profile'}
+              {profile.displayName || profile.email || profile.mobileNumber || 'Profile'}
             </span>
           </button>
         </div>
