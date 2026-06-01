@@ -99,7 +99,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     };
     addDoc(ref, data)
       .then(() => {
-        toast({ title: "Delivery Saved", description: "The entry has been recorded and synced." });
+        toast({ title: "Delivery Saved", description: "The entry has been recorded automatically." });
       })
       .catch(async (err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -143,15 +143,28 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
 
   const generatePdfBlob = async (): Promise<Blob | null> => {
     if (!printAreaRef.current) return null;
+    
     const originalStyle = printAreaRef.current.style.cssText;
-    printAreaRef.current.style.cssText = "display: block !important; position: absolute; left: 0; top: 0; width: 800px; background: white; visibility: visible !important; color: black !important; z-index: 9999; padding: 40px;";
+    // Force visibility and set fixed width for consistent capture
+    printAreaRef.current.style.cssText = "display: block !important; position: fixed; left: -9999px; top: 0; width: 800px; background: white; visibility: visible !important; color: black !important; padding: 40px;";
+    
     try {
-      const canvas = await html2canvas(printAreaRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+      const canvas = await html2canvas(printAreaRef.current, { 
+        scale: 2, 
+        useCORS: true, 
+        backgroundColor: '#ffffff',
+        logging: false
+      });
+      
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
-      pdf.addImage(imgData, 'PNG', 0, 0, 210, (canvas.height * 210) / canvas.width);
+      const pdfWidth = 210;
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      
       return pdf.output('blob');
     } catch (err) {
+      console.error("PDF generation failed:", err);
       return null;
     } finally {
       printAreaRef.current.style.cssText = originalStyle;
@@ -166,15 +179,31 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
 
   const handleSharePdf = async () => {
     setIsGeneratingPdf(true);
-    const blob = await generatePdfBlob();
-    setIsGeneratingPdf(false);
-    if (blob && navigator.share && navigator.canShare({ files: [new File([blob], 'bill.pdf', { type: 'application/pdf' })] })) {
-      await navigator.share({
-        files: [new File([blob], 'bill.pdf', { type: 'application/pdf' })],
-        title: 'Milk Bill',
-      });
-    } else {
-      toast({ title: "Sharing not supported", description: "Download the PDF instead.", variant: "destructive" });
+    try {
+      const blob = await generatePdfBlob();
+      setIsGeneratingPdf(false);
+      
+      if (!blob) throw new Error("Could not generate PDF");
+
+      if (navigator.share) {
+        const file = new File([blob], 'Milk_Bill.pdf', { type: 'application/pdf' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'Milk Bill',
+            text: `Invoice for ${customer.name}`
+          });
+        } else {
+          handleDownloadPdf();
+        }
+      } else {
+        handleDownloadPdf();
+      }
+    } catch (err: any) {
+      setIsGeneratingPdf(false);
+      if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
+        toast({ title: "Sharing Failed", description: "Try downloading instead.", variant: "destructive" });
+      }
     }
   };
 
@@ -194,14 +223,17 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
 
   const handleMarkPaid = async (fromDate: string, toDate: string) => {
     const entriesToUpdate = entries.filter(e => e.date >= fromDate && e.date <= toDate && !e.paid);
-    if (entriesToUpdate.length === 0) return;
+    if (entriesToUpdate.length === 0) {
+      toast({ title: "No unpaid entries", description: "All entries in this range are already paid." });
+      return;
+    }
     const batch = writeBatch(db);
     for (const entry of entriesToUpdate) {
       if (!entry.id) continue;
       batch.update(doc(db, 'users', userId, 'entries', entry.id), { paid: true });
     }
     await batch.commit();
-    toast({ title: "Payments Cleared" });
+    toast({ title: "Payments Updated", description: `Marked ${entriesToUpdate.length} entries as paid.` });
     setActiveTab('history');
   };
 
@@ -249,8 +281,8 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       )}
 
       <div className="text-center no-print">
-        <h2 className="text-3xl font-black text-[var(--heading-color)] mb-1 uppercase">{customer.name}</h2>
-        <div className="flex justify-center gap-4 text-xs font-bold text-muted-foreground uppercase">
+        <h2 className="text-3xl font-black text-[var(--heading-color)] mb-1 uppercase tracking-tight">{customer.name}</h2>
+        <div className="flex justify-center gap-4 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
           {customer.phoneNumber && <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {customer.phoneNumber}</span>}
           {customer.address && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {customer.address}</span>}
         </div>
@@ -309,7 +341,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
             ))}
           </tbody>
         </table>
-        <div className="flex justify-between items-start gap-12">
+        <div className="flex justify-between items-start gap-12 mt-4">
           <div>
             {upiUri && (
               <div className="border-2 border-black p-4 inline-block text-center bg-white shadow-sm">
@@ -323,6 +355,9 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
             <div className="flex justify-between text-sm text-emerald-700"><span>Received:</span><span className="font-bold">₹{billStats.totalPaid.toFixed(2)}</span></div>
             <div className="flex justify-between text-xl font-black border-t-2 border-black pt-2"><span>BALANCE:</span><span>₹{billStats.totalDue.toFixed(2)}</span></div>
           </div>
+        </div>
+        <div className="mt-12 text-center text-[10px] text-gray-400 border-t pt-4">
+          Powered by Milk Tracker Pro
         </div>
       </div>
     </div>
