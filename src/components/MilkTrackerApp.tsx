@@ -2,7 +2,20 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useUser, useFirestore, useCollection, useDoc, errorEmitter, FirestorePermissionError } from '@/firebase';
-import { collection, doc, addDoc, setDoc, deleteDoc, updateDoc, query, orderBy, collectionGroup, where, getDoc } from 'firebase/firestore';
+import { 
+  collection, 
+  doc, 
+  addDoc, 
+  setDoc, 
+  deleteDoc, 
+  updateDoc, 
+  query, 
+  orderBy, 
+  collectionGroup, 
+  where, 
+  getDoc,
+  onSnapshot 
+} from 'firebase/firestore';
 import AuthPage from '@/components/AuthPage';
 import Dashboard from '@/components/Dashboard';
 import CustomerDetail from '@/components/CustomerDetail';
@@ -10,10 +23,11 @@ import SettingsPage from '@/components/SettingsPage';
 import ProfilePage from '@/components/ProfilePage';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Settings as SettingsIcon, User as UserIcon, Loader2, Home, Droplets, ShoppingBag } from 'lucide-react';
+import { Settings as SettingsIcon, User as UserIcon, Loader2, Home, Droplets, AlertCircle } from 'lucide-react';
 import { Customer, MilkEntry, AppSettings, UserProfile, CustomerPurchase } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { sanitizePhoneNumber } from '@/lib/utils';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function MilkTrackerApp() {
   const { user, loading: authLoading, signOut } = useUser();
@@ -24,27 +38,28 @@ export default function MilkTrackerApp() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [purchaseData, setPurchaseData] = useState<CustomerPurchase[]>([]);
   const [loadingPurchases, setLoadingPurchases] = useState(false);
+  const [indexError, setIndexError] = useState<string | null>(null);
 
   // Queries for the Dairy Owner
   const customersQuery = useMemo(() => {
     if (!db || !user) return null;
     return query(collection(db, 'users', user.uid, 'customers'), orderBy('name'));
-  }, [db, user]);
+  }, [db, user?.uid]);
 
   const entriesQuery = useMemo(() => {
     if (!db || !user) return null;
     return query(collection(db, 'users', user.uid, 'entries'), orderBy('date', 'desc'));
-  }, [db, user]);
+  }, [db, user?.uid]);
 
   const settingsRef = useMemo(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid, 'settings', 'config');
-  }, [db, user]);
+  }, [db, user?.uid]);
 
   const profileRef = useMemo(() => {
     if (!db || !user) return null;
     return doc(db, 'users', user.uid, 'profile', 'data');
-  }, [db, user]);
+  }, [db, user?.uid]);
 
   const { data: customers = [] } = useCollection<Customer>(customersQuery);
   const { data: milkEntries = [] } = useCollection<MilkEntry>(entriesQuery);
@@ -70,9 +85,10 @@ export default function MilkTrackerApp() {
     }
 
     setLoadingPurchases(true);
+    setIndexError(null);
     const cleanPhone = sanitizePhoneNumber(user.phoneNumber);
     
-    // Use collectionGroup to find entries where this user is the customer
+    // Collection Group query to find any entry where this user is the customer
     const q = query(collectionGroup(db, 'entries'), where('customerPhoneNumber', '==', cleanPhone));
     
     const unsubscribe = onSnapshot(q, async (snapshot) => {
@@ -86,7 +102,7 @@ export default function MilkTrackerApp() {
 
       const processed: CustomerPurchase[] = [];
       for (const ownerId of Object.keys(grouped)) {
-        // Fetch owner profile and settings for branding/payment
+        // Fetch owner details for branding/payments
         const pRef = doc(db, 'users', ownerId, 'profile', 'data');
         const sRef = doc(db, 'users', ownerId, 'settings', 'config');
         
@@ -101,30 +117,34 @@ export default function MilkTrackerApp() {
       }
       setPurchaseData(processed);
       setLoadingPurchases(false);
-    }, (err) => {
+    }, (err: any) => {
       console.error("Portal fetch error:", err);
+      if (err.message?.includes('index')) {
+        setIndexError("A database index is currently being created. Purchases will appear shortly.");
+      }
       setLoadingPurchases(false);
     });
 
     return () => unsubscribe();
   }, [db, user?.phoneNumber]);
 
-  // Initial Redirect Logic
+  // Handle Initial View Selection
   useEffect(() => {
     if (!authLoading && !profileLoading && user) {
       const storageKey = `onboarding_complete_${user.uid}`;
       const hasSeenOnboarding = localStorage.getItem(storageKey);
 
       if (!profileData && !hasSeenOnboarding) {
-        // If they are a customer but not an owner, they might not need a profile setup immediately
-        // but we still want to greet them.
-        if (purchaseData.length === 0) {
+        // If they have purchases but no customers, they are likely just a customer
+        if (customers.length === 0 && purchaseData.length > 0) {
+          // Stay on dashboard, it will default to Purchases tab
+        } else if (!profileData) {
           setCurrentView('profile');
         }
         localStorage.setItem(storageKey, 'true');
       }
     }
-  }, [authLoading, profileLoading, user, profileData, purchaseData.length]);
+  }, [authLoading, profileLoading, user, profileData, purchaseData.length, customers.length]);
 
   useEffect(() => {
     if (settings.darkMode) {
@@ -145,10 +165,6 @@ export default function MilkTrackerApp() {
   if (!user) return <AuthPage />;
 
   const handleAddCustomer = (customerData: Omit<Customer, 'ownerId'>) => {
-    if (customers.find(c => c.name.toLowerCase() === customerData.name.toLowerCase())) {
-      toast({ title: "Error", description: "Customer already exists.", variant: "destructive" });
-      return;
-    }
     const cleanPhone = customerData.phoneNumber ? sanitizePhoneNumber(customerData.phoneNumber) : "";
     const ref = collection(db!, 'users', user.uid, 'customers');
     const data = { 
@@ -224,6 +240,18 @@ export default function MilkTrackerApp() {
 
   return (
     <div className="container mx-auto px-4 pb-12">
+      {indexError && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-full max-w-lg px-4 no-print">
+          <Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Action Required</AlertTitle>
+            <AlertDescription className="text-xs">
+              Check your browser console (F12) for a Firebase link. Click it to create the required "Collection Group Index" so your purchases can show up.
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
       <header className="flex justify-between items-center mb-8 no-print pt-6 border-b pb-4">
         <div 
           className="flex items-center gap-3 cursor-pointer group" 
@@ -323,6 +351,3 @@ export default function MilkTrackerApp() {
     </div>
   );
 }
-
-// Ensure onSnapshot import
-import { onSnapshot } from 'firebase/firestore';

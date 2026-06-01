@@ -45,5 +45,6 @@ export function sanitizePhoneNumber(phone: string, defaultCountryCode = "+91"): 
     }
   }
   
-  return cleaned;
+  // Final safety: ensure no spaces or weirdness
+  return cleaned.replace(/\s/g, "");
 }
