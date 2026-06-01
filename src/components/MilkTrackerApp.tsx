@@ -21,6 +21,7 @@ export default function MilkTrackerApp() {
 
   const [currentView, setCurrentView] = useState<'dashboard' | 'customer-detail' | 'profile' | 'settings'>('dashboard');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [hasCheckedInitialRedirect, setHasCheckedInitialRedirect] = useState(false);
 
   const customersQuery = useMemo(() => {
     if (!db || !user) return null;
@@ -45,7 +46,7 @@ export default function MilkTrackerApp() {
   const { data: customers = [] } = useCollection<Customer>(customersQuery);
   const { data: milkEntries = [] } = useCollection<MilkEntry>(entriesQuery);
   const { data: settingsData } = useDoc<AppSettings>(settingsRef);
-  const { data: profileData } = useDoc<UserProfile>(profileRef);
+  const { data: profileData, loading: profileLoading } = useDoc<UserProfile>(profileRef);
 
   const settings = settingsData || { sellerName: '', defaultPrice: 0, darkMode: false, ownerId: user?.uid || '' };
   
@@ -57,6 +58,17 @@ export default function MilkTrackerApp() {
       ...profileData
     };
   }, [user, profileData]);
+
+  // Initial Redirect Logic for New Users
+  useEffect(() => {
+    if (!authLoading && !profileLoading && user && !hasCheckedInitialRedirect) {
+      // If profile data doesn't exist, it's a new user or missing profile
+      if (!profileData) {
+        setCurrentView('profile');
+      }
+      setHasCheckedInitialRedirect(true);
+    }
+  }, [authLoading, profileLoading, user, profileData, hasCheckedInitialRedirect]);
 
   useEffect(() => {
     if (settings.darkMode) {
