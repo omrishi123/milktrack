@@ -58,7 +58,7 @@ export default function EntryForm({ customerName, defaultPrice, onAdd }: EntryFo
               onChange={(e) => setDate(e.target.value)}
               required
             />
-            {date && <p className="text-[10px] text-muted-foreground mt-1">Selected: {formatDate(date)}</p>}
+            {date && <p className="text-[10px] text-muted-foreground mt-1">Format: {formatDate(date)}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="time">Time of Day</Label>

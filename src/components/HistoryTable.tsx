@@ -230,7 +230,7 @@ export default function HistoryTable({ entries, db, userId }: HistoryTableProps)
                     value={editingEntry.date}
                     onChange={e => setEditingEntry({...editingEntry, date: e.target.value})}
                   />
-                  <p className="text-[10px] text-muted-foreground mt-1">Selected: {formatDate(editingEntry.date)}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">Format: {formatDate(editingEntry.date)}</p>
                 </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
