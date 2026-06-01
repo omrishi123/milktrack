@@ -255,11 +255,84 @@ export default function AuthPage() {
         </CardHeader>
         
         <CardContent className="space-y-4">
-          <Tabs defaultValue="email" className="w-full">
+          <Tabs defaultValue="phone" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="email" className="font-bold">Email</TabsTrigger>
               <TabsTrigger value="phone" className="font-bold">Phone (OTP)</TabsTrigger>
+              <TabsTrigger value="email" className="font-bold">Email</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="phone" className="space-y-4">
+              {!showOtpInput ? (
+                <form onSubmit={handleSendOtp} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="phoneNumber" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Mobile Number</Label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="phoneNumber"
+                        type="tel"
+                        placeholder="e.g. 9876543210"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        required
+                        className="pl-10 h-12"
+                        disabled={isLoading}
+                      />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground italic">Code +91 will be added automatically for India.</p>
+                  </div>
+                  <Button type="submit" className="w-full btn-primary h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isLoading}>
+                    {isLoading ? (
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    ) : (
+                      <span className="flex items-center gap-2">Send OTP <ArrowRight className="h-4 w-4" /></span>
+                    )}
+                  </Button>
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex gap-3 items-start border border-blue-100 dark:border-blue-800">
+                    <AlertCircle className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-blue-700 dark:text-blue-300">
+                      <strong>Note:</strong> Ensure your website URL is added to "Authorized Domains" in the Firebase Console to enable OTP login.
+                    </p>
+                  </div>
+                </form>
+              ) : (
+                <form onSubmit={handleVerifyOtp} className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <Label htmlFor="otp" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Enter 6-Digit Code</Label>
+                      <button 
+                        type="button" 
+                        onClick={() => setShowOtpInput(false)}
+                        className="text-[10px] font-bold text-primary flex items-center gap-1 hover:underline"
+                      >
+                        <ChevronLeft className="h-3 w-3" /> Change Number
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="otp"
+                        type="text"
+                        placeholder="000000"
+                        maxLength={6}
+                        value={otp}
+                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                        required
+                        className="pl-10 h-12 text-center text-xl tracking-[0.5em] font-black"
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-lg font-bold shadow-lg shadow-emerald-500/20" disabled={isLoading || otp.length !== 6}>
+                    {isLoading ? (
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    ) : (
+                      'Verify & Login'
+                    )}
+                  </Button>
+                </form>
+              )}
+            </TabsContent>
 
             <TabsContent value="email" className="space-y-4">
               <form onSubmit={handleAuth} className="space-y-4">
@@ -338,79 +411,6 @@ export default function AuthPage() {
                   </p>
                 )}
               </div>
-            </TabsContent>
-
-            <TabsContent value="phone" className="space-y-4">
-              {!showOtpInput ? (
-                <form onSubmit={handleSendOtp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="phoneNumber" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Mobile Number</Label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="phoneNumber"
-                        type="tel"
-                        placeholder="e.g. 9876543210"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value)}
-                        required
-                        className="pl-10 h-12"
-                        disabled={isLoading}
-                      />
-                    </div>
-                    <p className="text-[10px] text-muted-foreground italic">Code +91 will be added automatically for India.</p>
-                  </div>
-                  <Button type="submit" className="w-full btn-primary h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isLoading}>
-                    {isLoading ? (
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    ) : (
-                      <span className="flex items-center gap-2">Send OTP <ArrowRight className="h-4 w-4" /></span>
-                    )}
-                  </Button>
-                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex gap-3 items-start border border-blue-100 dark:border-blue-800">
-                    <AlertCircle className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-                    <p className="text-[10px] text-blue-700 dark:text-blue-300">
-                      <strong>Note:</strong> Ensure your website URL is added to "Authorized Domains" in the Firebase Console to enable OTP login.
-                    </p>
-                  </div>
-                </form>
-              ) : (
-                <form onSubmit={handleVerifyOtp} className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="otp" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Enter 6-Digit Code</Label>
-                      <button 
-                        type="button" 
-                        onClick={() => setShowOtpInput(false)}
-                        className="text-[10px] font-bold text-primary flex items-center gap-1 hover:underline"
-                      >
-                        <ChevronLeft className="h-3 w-3" /> Change Number
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="otp"
-                        type="text"
-                        placeholder="000000"
-                        maxLength={6}
-                        value={otp}
-                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                        required
-                        className="pl-10 h-12 text-center text-xl tracking-[0.5em] font-black"
-                        disabled={isLoading}
-                      />
-                    </div>
-                  </div>
-                  <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-lg font-bold shadow-lg shadow-emerald-500/20" disabled={isLoading || otp.length !== 6}>
-                    {isLoading ? (
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    ) : (
-                      'Verify & Login'
-                    )}
-                  </Button>
-                </form>
-              )}
             </TabsContent>
           </Tabs>
           
