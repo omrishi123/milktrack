@@ -3,12 +3,19 @@
 import React, { useState, useMemo } from 'react';
 import { MilkEntry } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Calculator, Calendar, Droplets, Banknote, History, MessageCircle } from 'lucide-react';
+import { Calculator, Calendar as CalendarIcon, Droplets, Banknote, History, MessageCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { formatDate } from '@/lib/utils';
+import { format, parseISO } from "date-fns";
+import { cn } from "@/lib/utils";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface SmartHisabProps {
   customerName: string;
@@ -20,7 +27,7 @@ interface SmartHisabProps {
 export default function SmartHisab({ customerName, phoneNumber, entries, sellerName }: SmartHisabProps) {
   const [fromDate, setFromDate] = useState(() => {
     const d = new Date();
-    d.setDate(1); // Default to start of current month
+    d.setDate(1); 
     return d.toISOString().split('T')[0];
   });
   const [toDate, setToDate] = useState(new Date().toISOString().split('T')[0]);
@@ -70,72 +77,102 @@ export default function SmartHisab({ customerName, phoneNumber, entries, sellerN
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="hisab-from">From Date</Label>
-              <Input 
-                id="hisab-from" 
-                type="date" 
-                value={fromDate} 
-                onChange={e => setFromDate(e.target.value)} 
-              />
-              {fromDate && <p className="text-[10px] text-muted-foreground">Format: {formatDate(fromDate)}</p>}
+            <div className="space-y-2 flex flex-col">
+              <Label>From Date (Yaha se)</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-black h-12 bg-background",
+                      !fromDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {fromDate ? format(parseISO(fromDate), "dd/MM/yyyy") : <span>Select Start Date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={parseISO(fromDate)}
+                    onSelect={(d) => d && setFromDate(d.toISOString().split('T')[0])}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="hisab-to">To Date</Label>
-              <Input 
-                id="hisab-to" 
-                type="date" 
-                value={toDate} 
-                onChange={e => setToDate(e.target.value)} 
-              />
-              {toDate && <p className="text-[10px] text-muted-foreground">Format: {formatDate(toDate)}</p>}
+            <div className="space-y-2 flex flex-col">
+              <Label>To Date (Yaha tak)</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-black h-12 bg-background",
+                      !toDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {toDate ? format(parseISO(toDate), "dd/MM/yyyy") : <span>Select End Date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={parseISO(toDate)}
+                    onSelect={(d) => d && setToDate(d.toISOString().split('T')[0])}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-blue-500/5 border-blue-500/20">
+        <Card className="bg-blue-500/5 border-blue-500/20 shadow-none">
           <CardContent className="pt-6 flex flex-col items-center justify-center text-center">
-            <Droplets className="h-5 w-5 text-blue-500 mb-2" />
-            <p className="text-[10px] font-bold uppercase text-muted-foreground">Total Milk</p>
-            <p className="text-xl font-black text-blue-700">{stats.totalLiters.toFixed(1)} L</p>
+            <Droplets className="h-6 w-6 text-blue-500 mb-2" />
+            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-tighter">Total Milk</p>
+            <p className="text-2xl font-black text-blue-700">{stats.totalLiters.toFixed(1)} L</p>
           </CardContent>
         </Card>
         
-        <Card className="bg-emerald-500/5 border-emerald-500/20">
+        <Card className="bg-emerald-500/5 border-emerald-500/20 shadow-none">
           <CardContent className="pt-6 flex flex-col items-center justify-center text-center">
-            <Banknote className="h-5 w-5 text-emerald-500 mb-2" />
-            <p className="text-[10px] font-bold uppercase text-muted-foreground">Total Bill</p>
-            <p className="text-xl font-black text-emerald-700">₹{stats.totalAmount.toFixed(0)}</p>
+            <Banknote className="h-6 w-6 text-emerald-500 mb-2" />
+            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-tighter">Total Bill</p>
+            <p className="text-2xl font-black text-emerald-700">₹{stats.totalAmount.toFixed(0)}</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-red-500/5 border-red-500/20">
+        <Card className="bg-red-500/5 border-red-500/20 shadow-none">
           <CardContent className="pt-6 flex flex-col items-center justify-center text-center">
-            <History className="h-5 w-5 text-red-500 mb-2" />
-            <p className="text-[10px] font-bold uppercase text-muted-foreground">Total Due</p>
-            <p className="text-xl font-black text-red-700">₹{stats.totalDue.toFixed(0)}</p>
+            <History className="h-6 w-6 text-red-500 mb-2" />
+            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-tighter">Total Due</p>
+            <p className="text-2xl font-black text-red-700">₹{stats.totalDue.toFixed(0)}</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-500/5 border-slate-500/20">
+        <Card className="bg-slate-500/5 border-slate-500/20 shadow-none">
           <CardContent className="pt-6 flex flex-col items-center justify-center text-center">
-            <Calendar className="h-5 w-5 text-slate-500 mb-2" />
-            <p className="text-[10px] font-bold uppercase text-muted-foreground">Deliveries</p>
-            <p className="text-xl font-black text-slate-700">{stats.entryCount}</p>
+            <Calculator className="h-6 w-6 text-slate-500 mb-2" />
+            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-tighter">Deliveries</p>
+            <p className="text-2xl font-black text-slate-700">{stats.entryCount}</p>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="shadow-none border-dashed">
+        <CardHeader className="pb-3 bg-muted/30">
           <div className="flex justify-between items-center">
-            <CardTitle className="text-sm font-bold uppercase tracking-tight">Period Breakdown</CardTitle>
+            <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground">Period Breakdown</CardTitle>
             <Button 
               size="sm" 
               onClick={handleShareHisab} 
-              className="bg-emerald-600 hover:bg-emerald-700 gap-2 font-bold"
+              className="bg-emerald-600 hover:bg-emerald-700 gap-2 font-black shadow-lg shadow-emerald-500/20"
               disabled={stats.entryCount === 0}
             >
               <MessageCircle className="h-4 w-4" /> Share on WhatsApp
@@ -143,26 +180,27 @@ export default function SmartHisab({ customerName, phoneNumber, entries, sellerN
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="divide-y max-h-[300px] overflow-auto">
+          <div className="divide-y max-h-[400px] overflow-auto">
             {stats.filtered.length === 0 ? (
-              <div className="py-10 text-center text-muted-foreground italic text-sm">
-                No records found for this period.
+              <div className="py-20 text-center space-y-3">
+                <div className="bg-muted w-16 h-16 rounded-full flex items-center justify-center mx-auto"><History className="h-8 w-8 text-muted-foreground" /></div>
+                <p className="text-muted-foreground font-bold">No records found for this period.</p>
               </div>
             ) : (
               stats.filtered.sort((a,b) => b.date.localeCompare(a.date)).map(e => (
-                <div key={e.id} className="flex items-center justify-between p-3 px-6 hover:bg-muted/30 transition-colors">
+                <div key={e.id} className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
                   <div className="flex flex-col">
-                    <span className="font-bold text-sm">{formatDate(e.date)}</span>
-                    <span className="text-[10px] text-muted-foreground">{e.timeOfDay}</span>
+                    <span className="font-black text-sm">{formatDate(e.date)}</span>
+                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">{e.timeOfDay}</span>
                   </div>
                   <div className="flex items-center gap-6">
                     <div className="text-right">
-                      <p className="text-sm font-bold">{e.milkQuantity}L</p>
-                      <p className="text-[10px] text-muted-foreground">₹{e.price}/L</p>
+                      <p className="text-sm font-black">{e.milkQuantity}L</p>
+                      <p className="text-[10px] text-muted-foreground font-bold">₹{e.price}/L</p>
                     </div>
-                    <div className="w-20 text-right">
+                    <div className="w-24 text-right">
                       <p className="text-sm font-black">₹{e.total.toFixed(2)}</p>
-                      <Badge variant="outline" className={`text-[8px] uppercase px-1 h-4 leading-none ${e.paid ? 'border-emerald-200 text-emerald-600' : 'border-red-200 text-red-600'}`}>
+                      <Badge variant="outline" className={`text-[9px] font-black uppercase mt-1 ${e.paid ? 'border-emerald-200 text-emerald-600' : 'border-red-200 text-red-600'}`}>
                         {e.paid ? 'Paid' : 'Due'}
                       </Badge>
                     </div>

@@ -28,7 +28,8 @@ import {
   RefreshCw,
   Share2,
   MessageSquare,
-  Globe
+  Globe,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '@/hooks/use-toast';
@@ -38,6 +39,14 @@ import { formatDate, sanitizePhoneNumber } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { format, parseISO } from "date-fns";
+import { cn } from "@/lib/utils";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface CustomerDetailProps {
   customer: Customer;
@@ -283,24 +292,24 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
           <ChevronLeft className="h-4 w-4" /> Dashboard
         </Button>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={handleSyncForPortal} disabled={isSyncing} className="gap-2 border-primary text-primary font-bold">
+          <Button variant="outline" size="sm" onClick={handleSyncForPortal} disabled={isSyncing} className="gap-2 border-primary text-primary font-black">
             {isSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Sync for Portal
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowBillFilters(!showBillFilters)} className="gap-2 font-bold">
+          <Button variant="outline" size="sm" onClick={() => setShowBillFilters(!showBillFilters)} className="gap-2 font-black">
             <Filter className="h-4 w-4" /> Filter Bill
           </Button>
-          <Button variant="default" size="sm" onClick={handleShareTextSummary} className="gap-2 bg-emerald-500 font-bold hover:bg-emerald-600">
+          <Button variant="default" size="sm" onClick={handleShareTextSummary} className="gap-2 bg-emerald-500 font-black hover:bg-emerald-600">
             <Send className="h-4 w-4" /> Share Text Summary
           </Button>
-          <Button variant="default" size="sm" onClick={handleSharePdf} disabled={isGeneratingPdf} className="gap-2 bg-emerald-600 font-bold hover:bg-emerald-700">
+          <Button variant="default" size="sm" onClick={handleSharePdf} disabled={isGeneratingPdf} className="gap-2 bg-emerald-600 font-black hover:bg-emerald-700">
             {isGeneratingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
             Share PDF
           </Button>
-          <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={isGeneratingPdf} className="gap-2 font-bold">
+          <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={isGeneratingPdf} className="gap-2 font-black">
             <Download className="h-4 w-4" /> Download PDF
           </Button>
-          <Button variant="default" size="sm" onClick={() => window.print()} className="gap-2 bg-primary font-bold">
+          <Button variant="default" size="sm" onClick={() => window.print()} className="gap-2 bg-primary font-black">
             <Printer className="h-4 w-4" /> Professional Print
           </Button>
         </div>
@@ -308,20 +317,60 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
 
       {showBillFilters && (
         <div className="no-print p-4 bg-card border rounded-xl shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="space-y-1">
-            <Label className="text-xs font-bold">Start Date</Label>
-            <Input type="date" value={billFromDate} onChange={e => setBillFromDate(e.target.value)} />
-            {billFromDate && <p className="text-[10px] text-muted-foreground">Selected: {formatDate(billFromDate)}</p>}
+          <div className="space-y-1 flex flex-col">
+            <Label className="text-xs font-black uppercase">Start Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-full justify-start text-left font-bold",
+                    !billFromDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {billFromDate ? format(parseISO(billFromDate), "dd/MM/yyyy") : <span>Select Date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={billFromDate ? parseISO(billFromDate) : undefined}
+                  onSelect={(d) => d && setBillFromDate(d.toISOString().split('T')[0])}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs font-bold">End Date</Label>
-            <Input type="date" value={billToDate} onChange={e => setBillToDate(e.target.value)} />
-            {billToDate && <p className="text-[10px] text-muted-foreground">Selected: {formatDate(billToDate)}</p>}
+          <div className="space-y-1 flex flex-col">
+            <Label className="text-xs font-black uppercase">End Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-full justify-start text-left font-bold",
+                    !billToDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {billToDate ? format(parseISO(billToDate), "dd/MM/yyyy") : <span>Select Date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={billToDate ? parseISO(billToDate) : undefined}
+                  onSelect={(d) => d && setBillToDate(d.toISOString().split('T')[0])}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="flex items-end pb-1 gap-2">
             <div className="flex items-center space-x-2 border rounded-md px-2 h-10 w-full">
               <Checkbox id="onlyUnpaid" checked={billOnlyUnpaid} onCheckedChange={(c) => setBillOnlyUnpaid(!!c)} />
-              <label htmlFor="onlyUnpaid" className="text-xs font-bold cursor-pointer">Unpaid Only</label>
+              <label htmlFor="onlyUnpaid" className="text-xs font-black uppercase cursor-pointer">Unpaid Only</label>
             </div>
           </div>
         </div>
@@ -351,9 +400,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       <div className={`${activeTab === 'payment' ? '' : 'hidden'} no-print`}><PaymentForm customerName={customer.name} onMarkPaid={handleMarkPaid} /></div>
       <div className={`${activeTab === 'ai' ? '' : 'hidden'} no-print`}><AiInsights customerName={customer.name} entries={entries} /></div>
 
-      {/* The Printable/PDF-able Area (Professional Replica) */}
       <div id="print-area" ref={printAreaRef} className="hidden print:block font-sans text-black p-10 bg-white min-h-[1120px]">
-        {/* Header Section */}
         <div className="flex justify-between items-start border-b-2 border-black pb-6 mb-8">
           <div className="flex gap-4 items-center">
             {profile.businessLogoBase64 ? (
@@ -383,7 +430,6 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
           </div>
         </div>
         
-        {/* Customer Details Section */}
         <div className="mb-10 p-4 border-l-4 border-black bg-gray-50/50">
           <h3 className="text-[10px] font-black uppercase text-gray-400 mb-1 tracking-widest">CUSTOMER DETAILS</h3>
           <p className="text-2xl font-black uppercase leading-tight mb-1">{customer.name}</p>
@@ -391,7 +437,6 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
           <p className="text-xs font-bold mt-1">Phone: {customer.phoneNumber || 'N/A'}</p>
         </div>
 
-        {/* Entries Table */}
         <table className="w-full text-sm mb-12 border-collapse">
           <thead>
             <tr className="border-y-2 border-black bg-white">
@@ -419,7 +464,6 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
           </tbody>
         </table>
 
-        {/* Financial Summary & QR Code */}
         <div className="border-t-2 border-dashed border-gray-300 pt-8 flex justify-between items-start">
           <div className="flex flex-col items-center">
             {upiUri ? (
@@ -440,7 +484,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
           <div className="w-80 space-y-4">
             <div className="flex justify-between items-center text-sm">
               <span className="text-gray-500 font-bold uppercase tracking-tight">Net Milk Volume:</span>
-              <span className="font-black text-lg">{billStats.totalLiters.toFixed(2)} Liters</span>
+              <span className="font-black text-lg">{billStats.totalLiters.toFixed(2)} L</span>
             </div>
             <div className="flex justify-between items-center text-sm border-t border-gray-100 pt-2">
               <span className="text-gray-500 font-bold uppercase tracking-tight">Subtotal Amount:</span>

@@ -8,6 +8,15 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatDate } from '@/lib/utils';
+import { Calendar as CalendarIcon } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { cn } from "@/lib/utils";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface EntryFormProps {
   customerName: string;
@@ -38,7 +47,6 @@ export default function EntryForm({ customerName, defaultPrice, onAdd }: EntryFo
       paid: false,
     });
     
-    // Reset defaults but keep price and date for convenience
     setQuantity('1');
   };
 
@@ -49,26 +57,40 @@ export default function EntryForm({ customerName, defaultPrice, onAdd }: EntryFo
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <Label htmlFor="date">Date</Label>
-            <Input
-              id="date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
-            />
-            {date && <p className="text-[10px] text-muted-foreground mt-1">Format: {formatDate(date)}</p>}
+          <div className="space-y-2 flex flex-col">
+            <Label>Date (Tareekh)</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-full justify-start text-left font-black h-12",
+                    !date && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {date ? format(parseISO(date), "dd/MM/yyyy") : <span>Select Date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={parseISO(date)}
+                  onSelect={(d) => d && setDate(d.toISOString().split('T')[0])}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="time">Time of Day</Label>
+            <Label htmlFor="time">Time (Samay)</Label>
             <Select value={timeOfDay} onValueChange={(val: any) => setTimeOfDay(val)}>
-              <SelectTrigger id="time">
+              <SelectTrigger id="time" className="h-12 font-bold">
                 <SelectValue placeholder="Select time" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Morning">Morning</SelectItem>
-                <SelectItem value="Evening">Evening</SelectItem>
+                <SelectItem value="Morning">Morning (Subah)</SelectItem>
+                <SelectItem value="Evening">Evening (Shaam)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -83,6 +105,7 @@ export default function EntryForm({ customerName, defaultPrice, onAdd }: EntryFo
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               required
+              className="h-12 text-lg font-bold"
             />
           </div>
           <div className="space-y-2">
@@ -94,9 +117,10 @@ export default function EntryForm({ customerName, defaultPrice, onAdd }: EntryFo
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               required
+              className="h-12 text-lg font-bold"
             />
           </div>
-          <Button type="submit" className="md:col-span-2 w-full h-12 text-lg font-bold">
+          <Button type="submit" className="md:col-span-2 w-full h-14 text-xl font-black shadow-lg shadow-primary/20">
             Record Delivery
           </Button>
         </form>
