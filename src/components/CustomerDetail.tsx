@@ -27,7 +27,8 @@ import {
   Clock,
   RefreshCw,
   Share2,
-  MessageSquare
+  MessageSquare,
+  Globe
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '@/hooks/use-toast';
@@ -76,11 +77,10 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     const totalDue = filteredEntriesForBill.filter(e => !e.paid).reduce((sum, e) => sum + e.total, 0);
     
     const sortedDates = [...filteredEntriesForBill].map(e => e.date).sort();
-    const dateRange = sortedDates.length > 0 
-      ? `${formatDate(sortedDates[0])} to ${formatDate(sortedDates[sortedDates.length - 1])}`
-      : 'No entries in range';
+    const startDate = sortedDates.length > 0 ? formatDate(sortedDates[0]) : '--/--/----';
+    const endDate = sortedDates.length > 0 ? formatDate(sortedDates[sortedDates.length - 1]) : '--/--/----';
 
-    return { totalLiters, totalAmount, totalPaid, totalDue, dateRange };
+    return { totalLiters, totalAmount, totalPaid, totalDue, startDate, endDate };
   }, [filteredEntriesForBill]);
 
   const upiUri = useMemo(() => {
@@ -123,8 +123,10 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       const q = query(collection(db, 'users', userId, 'entries'), where('customerName', '==', customer.name));
       const snap = await getDocs(q);
       snap.forEach(doc => {
-        if (doc.data().customerPhoneNumber !== cleanPhone) {
-          batch.update(doc.ref, { customerPhoneNumber: cleanPhone });
+        const entryRef = doc.ref;
+        const entryData = doc.data();
+        if (entryData.customerPhoneNumber !== cleanPhone) {
+          batch.update(entryRef, { customerPhoneNumber: cleanPhone });
           count++;
         }
       });
@@ -147,8 +149,6 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
     const element = printAreaRef.current;
     const originalStyle = element.style.cssText;
     
-    // Force element visibility and absolute positioning for full capture
-    // Setting fixed width (800px) ensures layout stability during canvas capture
     element.style.cssText = `
       display: block !important;
       visibility: visible !important;
@@ -160,19 +160,26 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       background: white !important;
       color: black !important;
       z-index: -9999 !important;
-      padding: 40px !important;
+      padding: 0 !important;
+      margin: 0 !important;
     `;
     
     try {
-      // Use html2canvas to capture the hidden but styled element
       const canvas = await html2canvas(element, { 
         scale: 2, 
         useCORS: true, 
         backgroundColor: '#ffffff',
         logging: false,
         width: 800,
-        height: element.scrollHeight, // Capture the entire scroll height
-        scrollY: -window.scrollY // Offset window scroll
+        height: element.scrollHeight,
+        windowWidth: 800,
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.getElementById('print-area');
+          if (clonedElement) {
+            clonedElement.style.display = 'block';
+            clonedElement.style.visibility = 'visible';
+          }
+        }
       });
       
       const imgData = canvas.toDataURL('image/png');
@@ -180,7 +187,6 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       const pdfWidth = 210;
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
-      // Handle multi-page PDF if content is too long for one A4 page
       const pageHeight = 297;
       let heightLeft = pdfHeight;
       let position = 0;
@@ -205,7 +211,7 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
   };
 
   const handleShareTextSummary = () => {
-    const text = `*🍼 MILK BILL SUMMARY*\n*Seller:* ${settings.sellerName || profile.displayName}\n*Customer:* ${customer.name}\n*Period:* ${billStats.dateRange}\n*Total Vol:* ${billStats.totalLiters.toFixed(2)} L\n*Subtotal:* ₹${billStats.totalAmount.toFixed(2)}\n*Paid:* ₹${billStats.totalPaid.toFixed(2)}\n*PENDING DUE:* ₹${billStats.totalDue.toFixed(2)}`;
+    const text = `*🍼 MILK BILL SUMMARY*\n*Seller:* ${settings.sellerName || profile.displayName}\n*Customer:* ${customer.name}\n*Period:* ${billStats.startDate} to ${billStats.endDate}\n*Total Vol:* ${billStats.totalLiters.toFixed(2)} L\n*Subtotal:* ₹${billStats.totalAmount.toFixed(2)}\n*Paid:* ₹${billStats.totalPaid.toFixed(2)}\n*PENDING DUE:* ₹${billStats.totalDue.toFixed(2)}`;
     const phone = customer.phoneNumber?.replace(/\D/g, '');
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
   };
@@ -221,7 +227,6 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       if (navigator.share) {
         const file = new File([blob], `Milk_Bill_${customer.name}.pdf`, { type: 'application/pdf' });
         try {
-          // navigator.share requires a user gesture. The click on the button provides this.
           await navigator.share({
             files: [file],
             title: 'Milk Bill',
@@ -336,78 +341,116 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       <div className={`${activeTab === 'payment' ? '' : 'hidden'} no-print`}><PaymentForm customerName={customer.name} onMarkPaid={handleMarkPaid} /></div>
       <div className={`${activeTab === 'ai' ? '' : 'hidden'} no-print`}><AiInsights customerName={customer.name} entries={entries} /></div>
 
-      {/* The Printable/PDF-able Area */}
-      <div id="print-area" ref={printAreaRef} className="hidden print:block font-serif text-black p-8 bg-white border">
-        <div className="flex justify-between items-start border-b-4 border-black pb-4 mb-6">
-          <div>
-            <h1 className="text-3xl font-black uppercase tracking-tighter">{settings.sellerName || profile.displayName || 'DAIRY LEDGER'}</h1>
-            {profile.address && <p className="text-sm mt-1">{profile.address}</p>}
-            <p className="text-xs font-bold mt-2">📞 {profile.mobileNumber || 'N/A'}</p>
+      {/* The Printable/PDF-able Area (Professional Replica) */}
+      <div id="print-area" ref={printAreaRef} className="hidden print:block font-sans text-black p-10 bg-white min-h-[1120px]">
+        {/* Header Section */}
+        <div className="flex justify-between items-start border-b-2 border-black pb-6 mb-8">
+          <div className="flex gap-4 items-center">
+            {profile.businessLogoBase64 ? (
+              <div className="h-20 w-20 overflow-hidden rounded-lg border-2 border-primary/20 bg-white p-1">
+                <img src={profile.businessLogoBase64} alt="Brand Logo" className="w-full h-full object-contain" />
+              </div>
+            ) : (
+              <div className="h-20 w-20 bg-primary flex items-center justify-center rounded-lg">
+                <Droplets className="h-10 w-10 text-white" />
+              </div>
+            )}
+            <div>
+              <h1 className="text-3xl font-black uppercase tracking-tight leading-none mb-2">{settings.sellerName || profile.displayName || 'DAIRY LEDGER'}</h1>
+              <p className="text-sm font-medium text-gray-600 max-w-[400px] leading-tight mb-2">{profile.address || 'Address Not Set'}</p>
+              <div className="flex gap-4 text-xs font-bold text-gray-800">
+                <span className="flex items-center gap-1">📞 {profile.mobileNumber || 'N/A'}</span>
+                <span className="flex items-center gap-1">💳 UPI: {profile.upiId || 'N/A'}</span>
+              </div>
+            </div>
           </div>
           <div className="text-right">
-            <h2 className="text-4xl font-black text-gray-200">INVOICE</h2>
-            <p className="text-sm font-bold mt-2">Date: {formatDate(new Date().toISOString().split('T')[0])}</p>
+            <h2 className="text-5xl font-black text-gray-100 mb-2 select-none tracking-tighter">INVOICE</h2>
+            <div className="text-xs font-bold uppercase space-y-1">
+              <p>Bill Date: <span className="text-gray-600">{formatDate(new Date().toISOString().split('T')[0])}</span></p>
+              <p>Period: <span className="text-gray-600">{billStats.startDate} to {billStats.endDate}</span></p>
+            </div>
           </div>
         </div>
         
-        <div className="mb-8">
-          <h3 className="text-xs font-black uppercase text-gray-500 mb-1">BILL TO:</h3>
-          <p className="text-xl font-black uppercase">{customer.name}</p>
-          {customer.address && <p className="text-sm">{customer.address}</p>}
-          <p className="text-xs mt-1">Period: {billStats.dateRange}</p>
+        {/* Customer Details Section */}
+        <div className="mb-10 p-4 border-l-4 border-black bg-gray-50/50">
+          <h3 className="text-[10px] font-black uppercase text-gray-400 mb-1 tracking-widest">CUSTOMER DETAILS</h3>
+          <p className="text-2xl font-black uppercase leading-tight mb-1">{customer.name}</p>
+          {customer.address && <p className="text-sm text-gray-600">{customer.address}</p>}
+          <p className="text-xs font-bold mt-1">Phone: {customer.phoneNumber || 'N/A'}</p>
         </div>
 
-        <table className="w-full text-sm mb-8 border-collapse">
+        {/* Entries Table */}
+        <table className="w-full text-sm mb-12 border-collapse">
           <thead>
-            <tr className="border-y-2 border-black bg-gray-50">
-              <th className="py-2 text-left px-2">DATE</th>
-              <th className="py-2 text-left px-2">SHIFT</th>
-              <th className="py-2 text-right px-2">QTY (L)</th>
-              <th className="py-2 text-right px-2">RATE</th>
-              <th className="py-2 text-right px-2 font-black">TOTAL</th>
+            <tr className="border-y-2 border-black bg-white">
+              <th className="py-3 text-left px-2 font-black uppercase tracking-wider">DATE</th>
+              <th className="py-3 text-left px-2 font-black uppercase tracking-wider">SESSION</th>
+              <th className="py-3 text-right px-2 font-black uppercase tracking-wider">QTY (L)</th>
+              <th className="py-3 text-right px-2 font-black uppercase tracking-wider">RATE (₹)</th>
+              <th className="py-3 text-right px-2 font-black uppercase tracking-wider">TOTAL (₹)</th>
+              <th className="py-3 text-right px-4 font-black uppercase tracking-wider">STATUS</th>
             </tr>
           </thead>
           <tbody className="divide-y border-b-2 border-black">
             {filteredEntriesForBill.map(e => (
-              <tr key={e.id}>
-                <td className="py-2 px-2">{formatDate(e.date)}</td>
-                <td className="py-2 px-2 uppercase text-xs">{e.timeOfDay}</td>
-                <td className="py-2 px-2 text-right">{e.milkQuantity.toFixed(2)}</td>
-                <td className="py-2 px-2 text-right">₹{e.price.toFixed(2)}</td>
-                <td className="py-2 px-2 text-right font-bold">₹{e.total.toFixed(2)}</td>
+              <tr key={e.id} className="border-gray-200">
+                <td className="py-3 px-2 font-medium">{formatDate(e.date)}</td>
+                <td className="py-3 px-2 text-gray-600">{e.timeOfDay}</td>
+                <td className="py-3 px-2 text-right font-medium">{e.milkQuantity.toFixed(2)}</td>
+                <td className="py-3 px-2 text-right text-gray-600">{e.price.toFixed(2)}</td>
+                <td className="py-3 px-2 text-right font-bold">₹{e.total.toFixed(2)}</td>
+                <td className={`py-3 px-4 text-right font-black text-[10px] ${e.paid ? 'text-emerald-600' : 'text-rose-500'}`}>
+                  {e.paid ? 'PAID' : 'DUE'}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        {/* Footer with Payment Info and Totals */}
-        <div className="flex justify-between items-start gap-12 mt-4 pt-4">
-          <div>
-            {upiUri && (
-              <div className="border-2 border-black p-4 inline-block text-center bg-white shadow-sm">
-                <QRCodeSVG value={decodeURIComponent(upiUri)} size={120} />
-                <p className="text-[10px] font-black mt-2 uppercase">SCAN TO PAY ₹{billStats.totalDue.toFixed(0)}</p>
+        {/* Financial Summary & QR Code */}
+        <div className="border-t-2 border-dashed border-gray-300 pt-8 flex justify-between items-start">
+          <div className="flex flex-col items-center">
+            {upiUri ? (
+              <div className="border-2 border-black p-4 bg-white shadow-sm inline-block text-center">
+                <QRCodeSVG value={decodeURIComponent(upiUri)} size={140} level="H" />
+                <div className="mt-2">
+                  <p className="text-[10px] font-black uppercase text-gray-400 leading-none mb-1">SCAN TO PAY (UPI)</p>
+                  <p className="text-xl font-black">₹{billStats.totalDue.toFixed(2)}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="h-[180px] w-[140px] flex items-center justify-center border-2 border-dashed border-gray-200 text-[10px] font-bold text-gray-400">
+                UPI ID NOT SET
               </div>
             )}
           </div>
-          <div className="w-64 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Subtotal:</span>
-              <span className="font-bold">₹{billStats.totalAmount.toFixed(2)}</span>
+          
+          <div className="w-80 space-y-4">
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-gray-500 font-bold uppercase tracking-tight">Net Milk Volume:</span>
+              <span className="font-black text-lg">{billStats.totalLiters.toFixed(2)} Liters</span>
             </div>
-            <div className="flex justify-between text-sm text-emerald-800">
-              <span>Received (Paid):</span>
-              <span className="font-bold">₹{billStats.totalPaid.toFixed(2)}</span>
+            <div className="flex justify-between items-center text-sm border-t border-gray-100 pt-2">
+              <span className="text-gray-500 font-bold uppercase tracking-tight">Subtotal Amount:</span>
+              <span className="font-black text-lg">₹{billStats.totalAmount.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-xl font-black border-t-2 border-black pt-2">
-              <span>BALANCE DUE:</span>
-              <span>₹{billStats.totalDue.toFixed(2)}</span>
+            <div className="flex justify-between items-center text-sm text-emerald-600">
+              <span className="font-bold uppercase tracking-tight">Payments Received:</span>
+              <span className="font-black text-lg">(-) ₹{billStats.totalPaid.toFixed(2)}</span>
             </div>
+            
+            <div className="border-t-4 border-black pt-4 mt-4">
+              <div className="flex justify-between items-center">
+                <span className="text-2xl font-black tracking-tighter">BALANCE:</span>
+                <span className="text-3xl font-black tracking-tighter">₹{billStats.totalDue.toFixed(2)}</span>
+              </div>
+            </div>
+            <p className="text-right text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-6">
+              DIGITAL INVOICE GENERATED BY MILK TRACKER PRO
+            </p>
           </div>
-        </div>
-
-        <div className="mt-12 text-center text-[10px] text-gray-400 border-t pt-4">
-          Powered by Milk Tracker Pro - Professional Milk Delivery Solutions
         </div>
       </div>
     </div>
