@@ -30,6 +30,7 @@ export default function Dashboard({
   onDeleteCustomer, 
   onSelectCustomer 
 }: DashboardProps) {
+  // Always default to 'list' (Your Customer)
   const [activeTab, setActiveTab] = useState<'list' | 'add' | 'purchases'>('list');
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -39,21 +40,8 @@ export default function Dashboard({
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
-  // Auto-switch to Add New Customer if it's a new user (no customers)
-  // or switch to Purchases if they only have purchase data.
-  useEffect(() => {
-    if (customers.length === 0) {
-      if (purchaseData.length > 0) {
-        setActiveTab('purchases');
-      } else {
-        setActiveTab('add');
-      }
-    } else if (activeTab === 'add' && customers.length > 0) {
-      // If we were on 'add' because it was empty, but now there are customers, 
-      // we don't automatically jump away while they might be adding another, 
-      // but on initial mount 'list' is the default if customers.length > 0.
-    }
-  }, [customers.length, purchaseData.length]);
+  // Removed the useEffect that was auto-switching to 'add' for new users.
+  // We want users to stay on 'Your Customer' by default.
 
   const now = new Date();
   const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -163,9 +151,19 @@ export default function Dashboard({
           <CardContent className="p-0">
             <div className="divide-y">
               {filteredCustomers.length === 0 ? (
-                <div className="py-20 text-center space-y-3">
+                <div className="py-20 text-center space-y-6">
                   <div className="bg-muted w-16 h-16 rounded-full flex items-center justify-center mx-auto"><Users className="h-8 w-8 text-muted-foreground" /></div>
-                  <p className="text-muted-foreground font-medium">{searchTerm ? "No match found." : "Your customer list is empty."}</p>
+                  <div className="space-y-4">
+                    <p className="text-muted-foreground font-medium">{searchTerm ? "No match found." : "Your customer list is empty."}</p>
+                    {!searchTerm && (
+                      <Button 
+                        onClick={() => setActiveTab('add')}
+                        className="bg-primary font-black gap-2 h-12 px-6 shadow-lg shadow-primary/20"
+                      >
+                        <UserPlus className="h-5 w-5" /> Add New Customer
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ) : (
                 filteredCustomers.map(c => (
