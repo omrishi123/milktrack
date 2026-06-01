@@ -36,11 +36,14 @@ export default function HistoryTable({ entries, db, userId }: HistoryTableProps)
   }, [entries]);
 
   const filtered = useMemo(() => {
-    return entries.filter(e => 
-      (!search || e.date.includes(search)) &&
-      (statusFilter === 'all' || (statusFilter === 'paid' && e.paid) || (statusFilter === 'unpaid' && !e.paid)) &&
-      (monthFilter === 'all' || e.date.startsWith(monthFilter))
-    );
+    return entries.filter(e => {
+      const formattedDate = formatDate(e.date);
+      return (
+        (!search || formattedDate.includes(search)) &&
+        (statusFilter === 'all' || (statusFilter === 'paid' && e.paid) || (statusFilter === 'unpaid' && !e.paid)) &&
+        (monthFilter === 'all' || e.date.startsWith(monthFilter))
+      );
+    });
   }, [entries, search, statusFilter, monthFilter]);
 
   const totalDue = useMemo(() => {
@@ -97,12 +100,12 @@ export default function HistoryTable({ entries, db, userId }: HistoryTableProps)
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 no-print">
         <div className="space-y-1">
-          <label className="text-xs font-semibold uppercase text-muted-foreground">Search Date</label>
+          <label className="text-xs font-semibold uppercase text-muted-foreground">Search Date (DD/MM/YYYY)</label>
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input 
               className="pl-9" 
-              placeholder="Search by date..." 
+              placeholder="e.g. 15/01/2024" 
               value={search} 
               onChange={e => setSearch(e.target.value)} 
             />
@@ -220,13 +223,15 @@ export default function HistoryTable({ entries, db, userId }: HistoryTableProps)
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-date" className="text-right">Date</Label>
-                <Input
-                  id="edit-date"
-                  type="date"
-                  className="col-span-3"
-                  value={editingEntry.date}
-                  onChange={e => setEditingEntry({...editingEntry, date: e.target.value})}
-                />
+                <div className="col-span-3">
+                  <Input
+                    id="edit-date"
+                    type="date"
+                    value={editingEntry.date}
+                    onChange={e => setEditingEntry({...editingEntry, date: e.target.value})}
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-1">Selected: {formatDate(editingEntry.date)}</p>
+                </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-time" className="text-right">Session</Label>

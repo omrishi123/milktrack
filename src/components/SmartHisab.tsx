@@ -78,6 +78,7 @@ export default function SmartHisab({ customerName, phoneNumber, entries, sellerN
                 value={fromDate} 
                 onChange={e => setFromDate(e.target.value)} 
               />
+              {fromDate && <p className="text-[10px] text-muted-foreground">Selected: {formatDate(fromDate)}</p>}
             </div>
             <div className="space-y-2">
               <Label htmlFor="hisab-to">To Date</Label>
@@ -87,6 +88,7 @@ export default function SmartHisab({ customerName, phoneNumber, entries, sellerN
                 value={toDate} 
                 onChange={e => setToDate(e.target.value)} 
               />
+              {toDate && <p className="text-[10px] text-muted-foreground">Selected: {formatDate(toDate)}</p>}
             </div>
           </div>
         </CardContent>

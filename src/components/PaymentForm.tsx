@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { CheckCircle2 } from 'lucide-react';
+import { formatDate } from '@/lib/utils';
 
 interface PaymentFormProps {
   customerName: string;
@@ -42,6 +43,7 @@ export default function PaymentForm({ customerName, onMarkPaid }: PaymentFormPro
               onChange={(e) => setFrom(e.target.value)}
               required
             />
+            {from && <p className="text-[10px] text-muted-foreground mt-1">Selected: {formatDate(from)}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="to">To Date</Label>
@@ -52,6 +54,7 @@ export default function PaymentForm({ customerName, onMarkPaid }: PaymentFormPro
               onChange={(e) => setTo(e.target.value)}
               required
             />
+            {to && <p className="text-[10px] text-muted-foreground mt-1">Selected: {formatDate(to)}</p>}
           </div>
           <Button type="submit" variant="default" className="md:col-span-2 w-full bg-emerald-600 hover:bg-emerald-700 h-12 text-lg font-bold">
             <CheckCircle2 className="mr-2 h-5 w-5" /> Mark as Paid

@@ -308,8 +308,16 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
 
       {showBillFilters && (
         <div className="no-print p-4 bg-card border rounded-xl shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="space-y-1"><Label className="text-xs font-bold">Start Date</Label><Input type="date" value={billFromDate} onChange={e => setBillFromDate(e.target.value)} /></div>
-          <div className="space-y-1"><Label className="text-xs font-bold">End Date</Label><Input type="date" value={billToDate} onChange={e => setBillToDate(e.target.value)} /></div>
+          <div className="space-y-1">
+            <Label className="text-xs font-bold">Start Date</Label>
+            <Input type="date" value={billFromDate} onChange={e => setBillFromDate(e.target.value)} />
+            {billFromDate && <p className="text-[10px] text-muted-foreground">Selected: {formatDate(billFromDate)}</p>}
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-bold">End Date</Label>
+            <Input type="date" value={billToDate} onChange={e => setBillToDate(e.target.value)} />
+            {billToDate && <p className="text-[10px] text-muted-foreground">Selected: {formatDate(billToDate)}</p>}
+          </div>
           <div className="flex items-end pb-1 gap-2">
             <div className="flex items-center space-x-2 border rounded-md px-2 h-10 w-full">
               <Checkbox id="onlyUnpaid" checked={billOnlyUnpaid} onCheckedChange={(c) => setBillOnlyUnpaid(!!c)} />
@@ -330,7 +338,9 @@ export default function CustomerDetail({ customer, entries, settings, profile, o
       <nav className="flex flex-wrap gap-2 p-1 bg-muted rounded-lg no-print">
         <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'entry' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('entry')}>Add Entry</button>
         <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'history' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('history')}>History</button>
-        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'hisab' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('hisab')}>Smart Hisab</button>
+        <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase flex items-center justify-center gap-2 ${activeTab === 'hisab' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('hisab')}>
+          <Calculator className="h-3 w-3" /> Smart Hisab
+        </button>
         <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'payment' ? 'bg-background shadow-sm text-primary' : 'text-muted-foreground'}`} onClick={() => setActiveTab('payment')}>Payments</button>
         <button className={`flex-1 py-3 px-3 rounded-md font-black transition-all text-xs uppercase ${activeTab === 'ai' ? 'bg-background shadow-sm text-amber-600' : 'text-muted-foreground'}`} onClick={() => setActiveTab('ai')}>AI Analysis</button>
       </nav>

@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { formatDate } from '@/lib/utils';
 
 interface EntryFormProps {
   customerName: string;
@@ -57,6 +58,7 @@ export default function EntryForm({ customerName, defaultPrice, onAdd }: EntryFo
               onChange={(e) => setDate(e.target.value)}
               required
             />
+            {date && <p className="text-[10px] text-muted-foreground mt-1">Selected: {formatDate(date)}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="time">Time of Day</Label>
