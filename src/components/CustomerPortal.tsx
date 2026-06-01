@@ -82,7 +82,8 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
   const [toDate, setToDate] = useState('');
   const [onlyUnpaid, setOnlyUnpaid] = useState(false);
 
-  const filteredEntries = useMemo(() => {
+  // UI LIST: Sorted Newest First for convenience
+  const uiEntries = useMemo(() => {
     return entries.filter(e => {
       const dateMatch = (!fromDate || e.date >= fromDate) && (!toDate || e.date <= toDate);
       const paidMatch = onlyUnpaid ? !e.paid : true;
@@ -90,18 +91,23 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
     }).sort((a, b) => b.date.localeCompare(a.date));
   }, [entries, fromDate, toDate, onlyUnpaid]);
 
+  // BILL ENTRIES: Sorted Oldest First for professional PDF/Print
+  const billEntries = useMemo(() => {
+    return [...uiEntries].sort((a, b) => a.date.localeCompare(b.date));
+  }, [uiEntries]);
+
   const stats = useMemo(() => {
-    const totalLiters = filteredEntries.reduce((sum, e) => sum + e.milkQuantity, 0);
-    const totalAmount = filteredEntries.reduce((sum, e) => sum + e.total, 0);
-    const totalPaid = filteredEntries.filter(e => e.paid).reduce((sum, e) => sum + e.total, 0);
-    const totalDue = filteredEntries.filter(e => !e.paid).reduce((sum, e) => sum + e.total, 0);
+    const totalLiters = billEntries.reduce((sum, e) => sum + e.milkQuantity, 0);
+    const totalAmount = billEntries.reduce((sum, e) => sum + e.total, 0);
+    const totalPaid = billEntries.filter(e => e.paid).reduce((sum, e) => sum + e.total, 0);
+    const totalDue = billEntries.filter(e => !e.paid).reduce((sum, e) => sum + e.total, 0);
     
-    const sortedDates = [...filteredEntries].map(e => e.date).sort();
+    const sortedDates = billEntries.map(e => e.date).sort();
     const startDate = sortedDates.length > 0 ? formatDate(sortedDates[0]) : '--/--/----';
     const endDate = sortedDates.length > 0 ? formatDate(sortedDates[sortedDates.length - 1]) : '--/--/----';
 
     return { totalLiters, totalAmount, totalPaid, totalDue, startDate, endDate };
-  }, [filteredEntries]);
+  }, [billEntries]);
 
   const upiUri = useMemo(() => {
     if (!ownerProfile?.upiId || stats.totalDue <= 0) return null;
@@ -115,7 +121,7 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
     const element = printAreaRef.current;
     const originalStyle = element.style.cssText;
     
-    // High-precision capture setup
+    // High-precision capture setup with professional margins
     element.style.cssText = `
       display: block !important;
       visibility: visible !important;
@@ -127,7 +133,7 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
       background: white !important;
       color: black !important;
       z-index: -9999 !important;
-      padding: 0 !important;
+      padding: 40px !important;
       margin: 0 !important;
     `;
     
@@ -138,7 +144,8 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
         backgroundColor: '#ffffff',
         width: 800,
         height: element.scrollHeight,
-        windowWidth: 800
+        windowWidth: 800,
+        logging: false
       });
       
       const imgData = canvas.toDataURL('image/png');
@@ -217,14 +224,14 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowFilters(!showFilters)} className="font-black gap-2">
-            <Filter className="h-4 w-4" /> Filter
+            <Filter className="h-4 w-4" /> Filter Bill
           </Button>
           <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={isGenerating} className="font-black gap-2">
             {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            Download Bill
+            Download PDF
           </Button>
           <Button variant="default" size="sm" onClick={handleSharePdf} disabled={isGenerating} className="bg-emerald-600 font-black gap-2">
-            <Share2 className="h-4 w-4" /> Share
+            <Share2 className="h-4 w-4" /> Share PDF
           </Button>
           <Button variant="default" size="sm" onClick={() => window.print()} className="bg-primary font-black gap-2">
             <Printer className="h-4 w-4" /> Professional Print
@@ -283,14 +290,14 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
         <Card className="shadow-none border-dashed">
           <CardHeader className="bg-muted/30 border-b flex flex-row items-center justify-between">
             <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground">Delivery History</CardTitle>
-            <Badge variant="outline" className="font-bold">{filteredEntries.length} Entries</Badge>
+            <Badge variant="outline" className="font-bold">{uiEntries.length} Entries</Badge>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y max-h-[500px] overflow-auto">
-              {filteredEntries.length === 0 ? (
+              {uiEntries.length === 0 ? (
                 <div className="p-12 text-center text-muted-foreground italic text-sm">No entries for the selected range.</div>
               ) : (
-                filteredEntries.map(e => (
+                uiEntries.map(e => (
                   <div key={e.id} className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
                     <div className="flex flex-col">
                       <span className="font-black text-sm">{formatDate(e.date)}</span>
@@ -337,7 +344,7 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
               <CardTitle className="text-xs font-black uppercase tracking-widest text-muted-foreground">Volume Consumption</CardTitle>
             </CardHeader>
             <CardContent className="h-[250px]">
-              <MilkChart entries={filteredEntries} />
+              <MilkChart entries={uiEntries} />
             </CardContent>
           </Card>
         </div>
@@ -391,7 +398,8 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
             </tr>
           </thead>
           <tbody className="divide-y border-b-2 border-black">
-            {filteredEntries.map(e => (
+            {/* Sorted Oldest to Newest for the Professional Bill */}
+            {billEntries.map(e => (
               <tr key={e.id} className="border-gray-200">
                 <td className="py-3 px-2 font-medium">{formatDate(e.date)}</td>
                 <td className="py-3 px-2 text-gray-600">{e.timeOfDay}</td>
@@ -443,6 +451,9 @@ function OwnerPurchaseSection({ purchase }: { purchase: CustomerPortalProps['pur
                 <span className="text-3xl font-black tracking-tighter">₹{stats.totalDue.toFixed(2)}</span>
               </div>
             </div>
+            <p className="text-right text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-6">
+              DIGITAL INVOICE GENERATED BY MILK TRACKER PRO
+            </p>
           </div>
         </div>
       </div>
